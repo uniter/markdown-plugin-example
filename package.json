@@ -25,7 +25,8 @@
     "README.md"
   ],
   "scripts": {
-    "build:browser": "webpack --devtool=source-map --mode=development --progress --watch",
+    "build:browser:dev": "webpack --devtool=source-map --mode=development --progress --watch",
+    "build:browser:prod": "webpack --devtool=source-map --mode=production --progress",
     "start": "uniter cli/entry.php"
   },
   "dependencies": {

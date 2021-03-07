@@ -23,7 +23,7 @@ Here is your Markdown HTML:
 
 ### Browser test
 ```shell
-$ npm run build:browser
+$ npm run build:browser:dev
 $ open index.html
 ```
 You should see the Markdown document rendered on the page.
