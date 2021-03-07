@@ -116,8 +116,9 @@ module.exports = function (engine) {
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
-module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("browser/entry.php", __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var $domDocument = tools.createDebugVar(scope, "domDocument");var $markdown = tools.createDebugVar(scope, "markdown");var line;tools.instrument(function () {return line;});line = 3;namespaceScope.use("MyUniterProjects\\MarkdownPluginExample\\Markdown");line = 5;(line = 5, tools.requireOnce((line = 5, (line = 5, tools.getPathDirectory()).concat((line = 5, tools.valueFactory.createString("/../vendor/autoload.php")))).getNative(), scope));line = 7;(line = 7, (line = 7, scope.getVariable("markdown")).setValue((line = 7, tools.createInstance(namespaceScope, (line = 7, tools.valueFactory.createBarewordString("Markdown")), []))));line = 9;(line = 9, (line = 9, tools.implyObject((line = 9, (line = 9, scope.getVariable("domDocument").getValue()).callMethod((line = 9, tools.valueFactory.createBarewordString("getElementById")).getNative(), [(line = 9, tools.valueFactory.createString("main"))]))).getInstancePropertyByName((line = 9, tools.valueFactory.createBarewordString("innerHTML")))).setValue((line = 9, (line = 9, scope.getVariable("markdown").getValue()).callMethod((line = 9, tools.valueFactory.createBarewordString("getHtml")).getNative(), []))));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */(function(module) {__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
+__webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("browser/entry.php", module, __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var $domDocument = tools.createDebugVar(scope, "domDocument");var $markdown = tools.createDebugVar(scope, "markdown");var line;tools.instrument(function () {return line;});line = 3;namespaceScope.use("MyUniterProjects\\MarkdownPluginExample\\Markdown");line = 5;(line = 5, tools.requireOnce((line = 5, (line = 5, tools.getPathDirectory()).concat((line = 5, tools.valueFactory.createString("/../vendor/autoload.php")))).getNative(), scope));line = 7;(line = 7, (line = 7, scope.getVariable("markdown")).setValue((line = 7, tools.createInstance(namespaceScope, (line = 7, tools.valueFactory.createBarewordString("Markdown")), []))));line = 9;(line = 9, (line = 9, tools.implyObject((line = 9, (line = 9, scope.getVariable("domDocument").getValue()).callMethod((line = 9, tools.valueFactory.createBarewordString("getElementById")).getNative(), [(line = 9, tools.valueFactory.createString("main"))]))).getInstancePropertyByName((line = 9, tools.valueFactory.createBarewordString("innerHTML")))).setValue((line = 9, (line = 9, scope.getVariable("markdown").getValue()).callMethod((line = 9, tools.valueFactory.createBarewordString("getHtml")).getNative(), []))));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(/*! ./../node_modules/webpack/buildin/module.js */ "./node_modules/webpack/buildin/module.js")(module)))
 
 /***/ }),
 
@@ -2494,31 +2495,52 @@ function unwrapListeners(arr) {
 
 function once(emitter, name) {
   return new Promise(function (resolve, reject) {
-    function eventListener() {
-      if (errorListener !== undefined) {
+    function errorListener(err) {
+      emitter.removeListener(name, resolver);
+      reject(err);
+    }
+
+    function resolver() {
+      if (typeof emitter.removeListener === 'function') {
         emitter.removeListener('error', errorListener);
       }
       resolve([].slice.call(arguments));
     };
-    var errorListener;
 
-    // Adding an error listener is not optional because
-    // if an error is thrown on an event emitter we cannot
-    // guarantee that the actual event we are waiting will
-    // be fired. The result could be a silent way to create
-    // memory or file descriptor leaks, which is something
-    // we should avoid.
+    eventTargetAgnosticAddListener(emitter, name, resolver, { once: true });
     if (name !== 'error') {
-      errorListener = function errorListener(err) {
-        emitter.removeListener(name, eventListener);
-        reject(err);
-      };
-
-      emitter.once('error', errorListener);
+      addErrorHandlerIfEventEmitter(emitter, errorListener, { once: true });
     }
-
-    emitter.once(name, eventListener);
   });
+}
+
+function addErrorHandlerIfEventEmitter(emitter, handler, flags) {
+  if (typeof emitter.on === 'function') {
+    eventTargetAgnosticAddListener(emitter, 'error', handler, flags);
+  }
+}
+
+function eventTargetAgnosticAddListener(emitter, name, listener, flags) {
+  if (typeof emitter.on === 'function') {
+    if (flags.once) {
+      emitter.once(name, listener);
+    } else {
+      emitter.on(name, listener);
+    }
+  } else if (typeof emitter.addEventListener === 'function') {
+    // EventTarget does not have `error` event semantics like Node
+    // EventEmitters, we do not listen for `error` events here.
+    emitter.addEventListener(name, function wrapListener(arg) {
+      // IE does not have builtin `{ once: true }` support so we
+      // have to do it manually.
+      if (flags.once) {
+        emitter.removeEventListener(name, wrapListener);
+      }
+      listener(arg);
+    });
+  } else {
+    throw new TypeError('The "emitter" argument must be of type EventEmitter. Received type ' + typeof emitter);
+  }
 }
 
 
@@ -7426,7 +7448,6 @@ module.exports = ValueFormatter;
 var _ = __webpack_require__(/*! microdash */ "./node_modules/microdash/index.js"),
     PATH = 'path',
     Promise = __webpack_require__(/*! lie */ "./node_modules/lie/lib/browser.js"),
-    ToolsWrapper = __webpack_require__(/*! ./Tools */ "./node_modules/phpcore/src/Tools.js"),
     ValueWrapper = __webpack_require__(/*! ./Value */ "./node_modules/phpcore/src/Value.js");
 
 /**
@@ -7637,7 +7658,6 @@ _.extend(Engine.prototype, {
             errorReporting,
             globalNamespace,
             globalScope,
-            loader,
             mode = engine.mode,
             module,
             moduleFactory,
@@ -7649,21 +7669,18 @@ _.extend(Engine.prototype, {
             phpCommon = engine.phpCommon,
             PHPError = phpCommon.PHPError,
             PHPParseError = phpCommon.PHPParseError,
-            referenceFactory,
             resultValue,
             scopeFactory,
             state,
             stderr = engine.getStderr(),
             stdin = engine.getStdin(),
             tools,
-            translator,
-            valueFactory,
+            toolsFactory,
             wrapper = engine.wrapper,
             unwrap = function (wrapper) {
                 return mode === 'async' ? wrapper.async(pausable) : wrapper.sync();
             },
             // TODO: Wrap this module with `pauser` to remove the need for this
-            Tools = unwrap(ToolsWrapper),
             Value = unwrap(ValueWrapper),
             topLevelNamespaceScope,
             topLevelScope;
@@ -7671,37 +7688,21 @@ _.extend(Engine.prototype, {
         state = environment.getState();
         callFactory = state.getCallFactory();
         errorReporting = state.getErrorReporting();
-        loader = state.getLoader();
         moduleFactory = state.getModuleFactory();
-        referenceFactory = state.getReferenceFactory();
         scopeFactory = state.getScopeFactory();
-        valueFactory = state.getValueFactory();
         globalNamespace = state.getGlobalNamespace();
         callStack = state.getCallStack();
         globalScope = state.getGlobalScope();
         output = state.getOutput();
+        toolsFactory = state.getToolsFactory();
         // Use the provided top-level scope if specified, otherwise use the global scope
         // (used eg. when an `include(...)` is used inside a function)
         topLevelScope = engine.topLevelScope || globalScope;
-        translator = state.getTranslator();
         module = moduleFactory.create(path);
         topLevelNamespaceScope = scopeFactory.createNamespaceScope(globalNamespace, globalNamespace, module);
 
         // Create the runtime tools object, referenced by the transpiled JS output from PHPToJS
-        tools = new Tools(
-            callStack,
-            environment,
-            translator,
-            globalNamespace,
-            loader,
-            module,
-            options,
-            referenceFactory,
-            scopeFactory,
-            topLevelNamespaceScope,
-            topLevelScope,
-            valueFactory
-        );
+        tools = toolsFactory.create(environment, module, topLevelNamespaceScope, topLevelScope, options);
 
         // Push the 'main' global scope call onto the stack
         callStack.push(callFactory.create(topLevelScope, topLevelNamespaceScope));
@@ -10529,8 +10530,6 @@ _.extend(StackCleaner.prototype, {
         for (frameIndex = stackLines.length - 1; frameIndex >= 0; frameIndex--) {
             line = stackLines[frameIndex];
 
-            // TODO: Define these special func names with Object.defineProperty(...)
-            //       to accommodate minification
             if (/__uniterInboundStackMarker__/.test(line)) {
                 state = STATE_PHP_LAND;
             } else if (/__uniterOutboundStackMarker__/.test(line)) {
@@ -13421,10 +13420,185 @@ module.exports = List;
 
 /***/ }),
 
-/***/ "./node_modules/phpcore/src/LoadScope.js":
-/*!***********************************************!*\
-  !*** ./node_modules/phpcore/src/LoadScope.js ***!
-  \***********************************************/
+/***/ "./node_modules/phpcore/src/Load/Includer.js":
+/*!***************************************************!*\
+  !*** ./node_modules/phpcore/src/Load/Includer.js ***!
+  \***************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/*
+ * PHPCore - PHP environment runtime components
+ * Copyright (c) Dan Phillimore (asmblah)
+ * https://github.com/uniter/phpcore/
+ *
+ * Released under the MIT license
+ * https://github.com/uniter/phpcore/raw/master/MIT-LICENSE.txt
+ */
+
+
+
+module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.js")([
+    __webpack_require__(/*! microdash */ "./node_modules/microdash/index.js"),
+    __webpack_require__(/*! phpcommon */ "./node_modules/phpcommon/index.js"),
+    __webpack_require__(/*! ../Exception/LoadFailedException */ "./node_modules/phpcore/src/Exception/LoadFailedException.js")
+], function (
+    _,
+    phpCommon,
+    LoadFailedException
+) {
+    var hasOwn = {}.hasOwnProperty,
+        Exception = phpCommon.Exception,
+        INCLUDE_OPTION = 'include',
+        PHPError = phpCommon.PHPError;
+
+    /**
+     * Handles include(...), require(...) and the _once(...) variants
+     *
+     * @param {CallStack} callStack
+     * @param {ValueFactory} valueFactory
+     * @param {ScopeFactory} scopeFactory
+     * @param {Loader} loader
+     * @param {OptionSet} optionSet
+     * @constructor
+     */
+    function Includer(
+        callStack,
+        valueFactory,
+        scopeFactory,
+        loader,
+        optionSet
+    ) {
+        /**
+         * @type {CallStack}
+         */
+        this.callStack = callStack;
+        /**
+         * @type {Object.<string, boolean>}
+         */
+        this.includedPaths = {};
+        /**
+         * @type {Loader}
+         */
+        this.loader = loader;
+        /**
+         * @type {OptionSet}
+         */
+        this.optionSet = optionSet;
+        /**
+         * @type {ScopeFactory}
+         */
+        this.scopeFactory = scopeFactory;
+        /**
+         * @type {ValueFactory}
+         */
+        this.valueFactory = valueFactory;
+    }
+
+    _.extend(Includer.prototype, {
+        /**
+         * Determines whether the given module has already been included
+         *
+         * @param {string} path
+         * @returns {boolean}
+         */
+        hasModuleBeenIncluded: function (path) {
+            return hasOwn.call(this.includedPaths, path);
+        },
+
+        /**
+         * Creates an includer for include(...), require(...) and the _once(...) variants
+         *
+         * @param {string} type "include", "require" or a "_once" variant
+         * @param {string} errorLevel One of the PHPError.E_* constant
+         * @param {Environment} environment
+         * @param {Module} module PHP Module that the include occurred inside
+         * @param {NamespaceScope} topLevelNamespaceScope
+         * @param {string} includedPath
+         * @param {Scope} enclosingScope
+         * @param {Object} options
+         * @returns {Value}
+         * @throws {Exception} When no include transport has been configured
+         * @throws {Error} When the loader throws a generic error
+         */
+        include: function (
+            type,
+            errorLevel,
+            environment,
+            module,
+            topLevelNamespaceScope,
+            includedPath,
+            enclosingScope,
+            options
+        ) {
+            var includer = this,
+                includeFunction = includer.optionSet.getOption(INCLUDE_OPTION),
+                includeScope,
+                previousError;
+
+            if (!includeFunction) {
+                throw new Exception(
+                    type + '(' + includedPath + ') :: No "' +
+                    INCLUDE_OPTION +
+                    '" transport option is available for loading the module.'
+                );
+            }
+
+            includeScope = includer.scopeFactory.createLoadScope(
+                enclosingScope,
+                topLevelNamespaceScope.getFilePath(),
+                type
+            );
+
+            // Mark the module as included so we may avoid including it a second time
+            includer.includedPaths[includedPath] = true;
+
+            try {
+                return includer.loader.load(
+                    type,
+                    includedPath,
+                    options,
+                    environment,
+                    module,
+                    includeScope,
+                    function (path, promise, parentPath, valueFactory) {
+                        return includeFunction(path, promise, parentPath, valueFactory);
+                    }
+                );
+            } catch (error) {
+                if (!(error instanceof LoadFailedException)) {
+                    // Rethrow for anything other than the expected possible exception(s) trying to load the module
+                    throw error;
+                }
+
+                previousError = error.getPreviousError();
+
+                includer.callStack.raiseError(
+                    PHPError.E_WARNING,
+                    type + '(' + includedPath + '): failed to open stream: ' +
+                        (previousError ? previousError.message : 'Unknown error')
+                );
+                includer.callStack.raiseError(
+                    errorLevel,
+                    type + '(): Failed opening \'' + includedPath + '\' for inclusion'
+                );
+
+                return includer.valueFactory.createBoolean(false);
+            }
+        }
+    });
+
+    return Includer;
+}, {strict: true});
+
+
+/***/ }),
+
+/***/ "./node_modules/phpcore/src/Load/LoadScope.js":
+/*!****************************************************!*\
+  !*** ./node_modules/phpcore/src/Load/LoadScope.js ***!
+  \****************************************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -13759,10 +13933,10 @@ module.exports = LoadScope;
 
 /***/ }),
 
-/***/ "./node_modules/phpcore/src/Loader.js":
-/*!********************************************!*\
-  !*** ./node_modules/phpcore/src/Loader.js ***!
-  \********************************************/
+/***/ "./node_modules/phpcore/src/Load/Loader.js":
+/*!*************************************************!*\
+  !*** ./node_modules/phpcore/src/Load/Loader.js ***!
+  \*************************************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -13782,9 +13956,9 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
     __webpack_require__(/*! microdash */ "./node_modules/microdash/index.js"),
     __webpack_require__(/*! path */ "./node_modules/path-browserify/index.js"),
     __webpack_require__(/*! phpcommon */ "./node_modules/phpcommon/index.js"),
-    __webpack_require__(/*! ./Value/Exit */ "./node_modules/phpcore/src/Value/Exit.js"),
-    __webpack_require__(/*! ./Exception/LoadFailedException */ "./node_modules/phpcore/src/Exception/LoadFailedException.js"),
-    __webpack_require__(/*! ./Value */ "./node_modules/phpcore/src/Value.js")
+    __webpack_require__(/*! ../Value/Exit */ "./node_modules/phpcore/src/Value/Exit.js"),
+    __webpack_require__(/*! ../Exception/LoadFailedException */ "./node_modules/phpcore/src/Exception/LoadFailedException.js"),
+    __webpack_require__(/*! ../Value */ "./node_modules/phpcore/src/Value.js")
 ], function (
     _,
     path,
@@ -13972,6 +14146,104 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
     });
 
     return Loader;
+}, {strict: true});
+
+
+/***/ }),
+
+/***/ "./node_modules/phpcore/src/Load/OnceIncluder.js":
+/*!*******************************************************!*\
+  !*** ./node_modules/phpcore/src/Load/OnceIncluder.js ***!
+  \*******************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/*
+ * PHPCore - PHP environment runtime components
+ * Copyright (c) Dan Phillimore (asmblah)
+ * https://github.com/uniter/phpcore/
+ *
+ * Released under the MIT license
+ * https://github.com/uniter/phpcore/raw/master/MIT-LICENSE.txt
+ */
+
+
+
+module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.js")([
+    __webpack_require__(/*! microdash */ "./node_modules/microdash/index.js")
+], function (
+    _
+) {
+    /**
+     * Handles include_once(...) and require_once(...)
+     *
+     * @param {ValueFactory} valueFactory
+     * @param {Includer} includer
+     * @constructor
+     */
+    function OnceIncluder(valueFactory, includer)
+    {
+        /**
+         * @type {Includer}
+         */
+        this.includer = includer;
+        /**
+         * @type {ValueFactory}
+         */
+        this.valueFactory = valueFactory;
+    }
+
+    _.extend(OnceIncluder.prototype, {
+        /**
+         * Includes the specified module, returning its return value.
+         * Throws if no include transport has been configured.
+         * Returns boolean true if the module has already been included.
+         *
+         * @param {string} type "include_once" or "require_once"
+         * @param {string} errorLevel One of the PHPError.E_* constants
+         * @param {Environment} environment
+         * @param {Module} module PHP Module that the include occurred inside
+         * @param {NamespaceScope} topLevelNamespaceScope
+         * @param {string} includedPath
+         * @param {Scope} enclosingScope
+         * @param {Object} options
+         * @returns {Value}
+         * @throws {Exception} When no include transport has been configured
+         * @throws {Error} When the loader throws a generic error
+         */
+        includeOnce: function (
+            type,
+            errorLevel,
+            environment,
+            module,
+            topLevelNamespaceScope,
+            includedPath,
+            enclosingScope,
+            options
+        ) {
+            var includer = this;
+
+            // Note that this lookup is updated in .include(...)
+            if (includer.includer.hasModuleBeenIncluded(includedPath)) {
+                // Module has already been included, so just return bool(true) to PHP-land
+                return includer.valueFactory.createBoolean(true);
+            }
+
+            return includer.includer.include(
+                type,
+                errorLevel,
+                environment,
+                module,
+                topLevelNamespaceScope,
+                includedPath,
+                enclosingScope,
+                options
+            );
+        }
+    });
+
+    return OnceIncluder;
 }, {strict: true});
 
 
@@ -15877,9 +16149,10 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
     __webpack_require__(/*! ./FunctionFactory */ "./node_modules/phpcore/src/FunctionFactory.js"),
     __webpack_require__(/*! ./Function/FunctionSpec */ "./node_modules/phpcore/src/Function/FunctionSpec.js"),
     __webpack_require__(/*! ./Function/FunctionSpecFactory */ "./node_modules/phpcore/src/Function/FunctionSpecFactory.js"),
+    __webpack_require__(/*! ./Load/Includer */ "./node_modules/phpcore/src/Load/Includer.js"),
     __webpack_require__(/*! ./INIState */ "./node_modules/phpcore/src/INIState.js"),
-    __webpack_require__(/*! ./Loader */ "./node_modules/phpcore/src/Loader.js"),
-    __webpack_require__(/*! ./LoadScope */ "./node_modules/phpcore/src/LoadScope.js"),
+    __webpack_require__(/*! ./Load/Loader */ "./node_modules/phpcore/src/Load/Loader.js"),
+    __webpack_require__(/*! ./Load/LoadScope */ "./node_modules/phpcore/src/Load/LoadScope.js"),
     __webpack_require__(/*! ./Function/MethodContext */ "./node_modules/phpcore/src/Function/MethodContext.js"),
     __webpack_require__(/*! ./MethodSpec */ "./node_modules/phpcore/src/MethodSpec.js"),
     __webpack_require__(/*! ./Module */ "./node_modules/phpcore/src/Module.js"),
@@ -15888,6 +16161,7 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
     __webpack_require__(/*! ./NamespaceFactory */ "./node_modules/phpcore/src/NamespaceFactory.js"),
     __webpack_require__(/*! ./NamespaceScope */ "./node_modules/phpcore/src/NamespaceScope.js"),
     __webpack_require__(/*! ./Reference/Null */ "./node_modules/phpcore/src/Reference/Null.js"),
+    __webpack_require__(/*! ./Load/OnceIncluder */ "./node_modules/phpcore/src/Load/OnceIncluder.js"),
     __webpack_require__(/*! ./OptionSet */ "./node_modules/phpcore/src/OptionSet.js"),
     __webpack_require__(/*! ./Output/Output */ "./node_modules/phpcore/src/Output/Output.js"),
     __webpack_require__(/*! ./Output/OutputBuffer */ "./node_modules/phpcore/src/Output/OutputBuffer.js"),
@@ -15901,6 +16175,8 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
     __webpack_require__(/*! ./ScopeFactory */ "./node_modules/phpcore/src/ScopeFactory.js"),
     __webpack_require__(/*! ./Output/StdoutBuffer */ "./node_modules/phpcore/src/Output/StdoutBuffer.js"),
     __webpack_require__(/*! ./SuperGlobalScope */ "./node_modules/phpcore/src/SuperGlobalScope.js"),
+    __webpack_require__(/*! ./Tools */ "./node_modules/phpcore/src/Tools.js"),
+    __webpack_require__(/*! ./ToolsFactory */ "./node_modules/phpcore/src/ToolsFactory.js"),
     __webpack_require__(/*! ./Error/TraceFormatter */ "./node_modules/phpcore/src/Error/TraceFormatter.js"),
     __webpack_require__(/*! ./Type/TypeFactory */ "./node_modules/phpcore/src/Type/TypeFactory.js"),
     __webpack_require__(/*! ./Value */ "./node_modules/phpcore/src/Value.js"),
@@ -15951,6 +16227,7 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
     FunctionFactory,
     FunctionSpec,
     FunctionSpecFactory,
+    Includer,
     INIState,
     Loader,
     LoadScope,
@@ -15962,6 +16239,7 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
     NamespaceFactory,
     NamespaceScope,
     NullReference,
+    OnceIncluder,
     OptionSet,
     Output,
     OutputBuffer,
@@ -15975,6 +16253,8 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
     ScopeFactory,
     StdoutBuffer,
     SuperGlobalScope,
+    Tools,
+    ToolsFactory,
     TraceFormatter,
     TypeFactory,
     Value,
@@ -16289,9 +16569,13 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
             ffiClassInternalsClassFactory,
             ffiFunctionInternalsClassFactory,
             globalsSuperGlobal = superGlobalScope.defineVariable('GLOBALS'),
+            loader = new Loader(valueFactory, pausable),
+            includer,
+            onceIncluder,
             optionSet,
             output = new Output(new OutputFactory(OutputBuffer), new StdoutBuffer(stdout)),
-            state = this;
+            state = this,
+            toolsFactory;
 
         scopeFactory.setClosureFactory(closureFactory);
         globalScope = scopeFactory.create();
@@ -16304,6 +16588,27 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
         options = _.extend({}, options || {});
 
         optionSet = new OptionSet(options);
+
+        includer = new Includer(
+            callStack,
+            valueFactory,
+            scopeFactory,
+            loader,
+            optionSet
+        );
+        onceIncluder = new OnceIncluder(valueFactory, includer);
+        toolsFactory = new ToolsFactory(
+            Tools,
+            callStack,
+            translator,
+            globalNamespace,
+            loader,
+            includer,
+            onceIncluder,
+            referenceFactory,
+            scopeFactory,
+            valueFactory
+        );
 
         ffiInternals = new FFIInternals(
             mode,
@@ -16409,7 +16714,7 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
         this.ffiValueHelper = ffiValueHelper;
         this.output = output;
 
-        this.loader = new Loader(valueFactory, pausable);
+        this.loader = loader;
         this.moduleFactory = moduleFactory;
         this.referenceFactory = referenceFactory;
         this.scopeFactory = scopeFactory;
@@ -16421,6 +16726,7 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
         this.stdout = stdout;
         this.superGlobalScope = superGlobalScope;
         this.throwableClassObject = null;
+        this.toolsFactory = toolsFactory;
         this.translator = translator;
         this.valueFactory = valueFactory;
 
@@ -16761,6 +17067,15 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
 
         getSuperGlobalScope: function () {
             return this.superGlobalScope;
+        },
+
+        /**
+         * Fetches the ToolsFactory service
+         *
+         * @returns {ToolsFactory}
+         */
+        getToolsFactory: function () {
+            return this.toolsFactory;
         },
 
         /**
@@ -20252,26 +20567,22 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
     __webpack_require__(/*! ./Debug/DebugVariable */ "./node_modules/phpcore/src/Debug/DebugVariable.js"),
     __webpack_require__(/*! ./KeyReferencePair */ "./node_modules/phpcore/src/KeyReferencePair.js"),
     __webpack_require__(/*! ./KeyValuePair */ "./node_modules/phpcore/src/KeyValuePair.js"),
-    __webpack_require__(/*! ./List */ "./node_modules/phpcore/src/List.js"),
-    __webpack_require__(/*! ./Exception/LoadFailedException */ "./node_modules/phpcore/src/Exception/LoadFailedException.js")
+    __webpack_require__(/*! ./List */ "./node_modules/phpcore/src/List.js")
 ], function (
     _,
     phpCommon,
     DebugVariable,
     KeyReferencePair,
     KeyValuePair,
-    List,
-    LoadFailedException
+    List
 ) {
     var Exception = phpCommon.Exception,
-        hasOwn = {}.hasOwnProperty,
 
         EVAL_PATH = 'core.eval_path',
         NO_PARENT_CLASS = 'core.no_parent_class',
         UNKNOWN = 'core.unknown',
 
         EVAL_OPTION = 'eval',
-        INCLUDE_OPTION = 'include',
         TICK_OPTION = 'tick',
         PHPError = phpCommon.PHPError;
 
@@ -20281,6 +20592,8 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
      * @param {Translator} translator
      * @param {Namespace} globalNamespace
      * @param {Loader} loader
+     * @param {Includer} includer
+     * @param {OnceIncluder} onceIncluder
      * @param {Module} module
      * @param {Object} options
      * @param {ReferenceFactory} referenceFactory
@@ -20296,6 +20609,8 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
         translator,
         globalNamespace,
         loader,
+        includer,
+        onceIncluder,
         module,
         options,
         referenceFactory,
@@ -20317,9 +20632,9 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
          */
         this.globalNamespace = globalNamespace;
         /**
-         * @type {Object.<string, boolean>}
+         * @type {Includer}
          */
-        this.includedPaths = {};
+        this.includer = includer;
         /**
          * @type {Loader}
          */
@@ -20328,6 +20643,10 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
          * @type {Module}
          */
         this.module = module;
+        /**
+         * @type {OnceIncluder}
+         */
+        this.onceIncluder = onceIncluder;
         /**
          * @type {Object}
          */
@@ -20613,24 +20932,30 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
          * Throws if no include transport has been configured.
          *
          * @param {string} includedPath
-         * @param {Scope} includeScope
+         * @param {Scope} enclosingScope
          * @returns {Value}
+         * @throws {Exception} When no include transport has been configured
+         * @throws {Error} When the loader throws a generic error
          */
-        includeOnce: function (includedPath, includeScope) {
+        includeOnce: function (includedPath, enclosingScope) {
             var tools = this;
 
-            if (hasOwn.call(tools.includedPaths, includedPath)) {
-                return tools.valueFactory.createBoolean(true);
-            }
-
-            tools.includedPaths[includedPath] = true;
-
-            return tools.include(includedPath, includeScope);
+            return tools.onceIncluder.includeOnce(
+                'include_once',
+                PHPError.E_WARNING, // For includes, only a warning is raised on failure
+                tools.environment,
+                tools.module,
+                tools.topLevelNamespaceScope,
+                includedPath,
+                enclosingScope,
+                tools.options
+            );
         },
 
         /**
          * Includes the specified module, returning its return value.
          * Throws if no include transport has been configured.
+         * Raises a warning and returns false if the module cannot be found.
          *
          * @param {string} includedPath
          * @param {Scope} enclosingScope
@@ -20639,50 +20964,18 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
          * @throws {Error} When the loader throws a generic error
          */
         include: function (includedPath, enclosingScope) {
-            var includeScope,
-                tools = this;
+            var tools = this;
 
-            if (!tools.options[INCLUDE_OPTION]) {
-                throw new Exception(
-                    'include(' + includedPath + ') :: No "include" transport option is available for loading the module.'
-                );
-            }
-
-            includeScope = tools.scopeFactory.createLoadScope(
+            return tools.includer.include(
+                'include',
+                PHPError.E_WARNING, // For includes, only a warning is raised on failure
+                tools.environment,
+                tools.module,
+                tools.topLevelNamespaceScope,
+                includedPath,
                 enclosingScope,
-                tools.topLevelNamespaceScope.getFilePath(),
-                'include'
+                tools.options
             );
-
-            try {
-                return tools.loader.load(
-                    'include',
-                    includedPath,
-                    tools.options,
-                    tools.environment,
-                    tools.module,
-                    includeScope,
-                    function (path, promise, parentPath, valueFactory) {
-                        return tools.options[INCLUDE_OPTION](path, promise, parentPath, valueFactory);
-                    }
-                );
-            } catch (error) {
-                if (!(error instanceof LoadFailedException)) {
-                    // Rethrow for anything other than the expected possible exception(s) trying to load the module
-                    throw error;
-                }
-
-                tools.callStack.raiseError(
-                    PHPError.E_WARNING,
-                    'include(' + includedPath + '): failed to open stream: No such file or directory'
-                );
-                tools.callStack.raiseError(
-                    PHPError.E_WARNING,
-                    'include(): Failed opening \'' + includedPath + '\' for inclusion'
-                );
-
-                return tools.valueFactory.createBoolean(false);
-            }
         },
 
         /**
@@ -20694,16 +20987,58 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
             this.callStack.instrumentCurrent(finder);
         },
 
-        requireOnce: function () {
-            // FIXME: This should not be identical to include() or require()
+        /**
+         * Includes the specified module if it has not been included yet.
+         * If it has not already been included, the module's return value is returned,
+         * otherwise boolean true will be returned.
+         * Throws if no include transport has been configured.
+         * Raises a fatal error if the module cannot be found.
+         *
+         * @param {string} includedPath
+         * @param {Scope} enclosingScope
+         * @throws {Exception} When no include transport has been configured
+         * @throws {Error} When the loader throws a generic error
+         * @returns {Value}
+         */
+        requireOnce: function (includedPath, enclosingScope) {
+            var tools = this;
 
-            return this.include.apply(this, arguments);
+            return tools.onceIncluder.includeOnce(
+                'require_once',
+                PHPError.E_ERROR, // For requires, a fatal error is raised on failure
+                tools.environment,
+                tools.module,
+                tools.topLevelNamespaceScope,
+                includedPath,
+                enclosingScope,
+                tools.options
+            );
         },
 
-        require: function () {
-            // FIXME: This should not be identical to include()
+        /**
+         * Includes the specified module, returning its return value.
+         * Throws if no include transport has been configured.
+         * Raises a fatal error if the module cannot be found.
+         *
+         * @param {string} includedPath
+         * @param {Scope} enclosingScope
+         * @returns {Value}
+         * @throws {Exception} When no include transport has been configured
+         * @throws {Error} When the loader throws a generic error
+         */
+        require: function (includedPath, enclosingScope) {
+            var tools = this;
 
-            return this.include.apply(this, arguments);
+            return tools.includer.include(
+                'require',
+                PHPError.E_ERROR, // For requires, a fatal error is raised on failure
+                tools.environment,
+                tools.module,
+                tools.topLevelNamespaceScope,
+                includedPath,
+                enclosingScope,
+                tools.options
+            );
         },
 
         /**
@@ -20736,6 +21071,138 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
 
     return Tools;
 }, {strict: true});
+
+
+/***/ }),
+
+/***/ "./node_modules/phpcore/src/ToolsFactory.js":
+/*!**************************************************!*\
+  !*** ./node_modules/phpcore/src/ToolsFactory.js ***!
+  \**************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/*
+ * PHPCore - PHP environment runtime components
+ * Copyright (c) Dan Phillimore (asmblah)
+ * https://github.com/uniter/phpcore/
+ *
+ * Released under the MIT license
+ * https://github.com/uniter/phpcore/raw/master/MIT-LICENSE.txt
+ */
+
+
+
+var _ = __webpack_require__(/*! microdash */ "./node_modules/microdash/index.js");
+
+/**
+ * @param {class} Tools
+ * @param {CallStack} callStack
+ * @param {Translator} translator
+ * @param {GlobalNamespace} globalNamespace
+ * @param {Loader} loader
+ * @param {Includer} includer
+ * @param {OnceIncluder} onceIncluder
+ * @param {ReferenceFactory} referenceFactory
+ * @param {ScopeFactory} scopeFactory
+ * @param {ValueFactory} valueFactory
+ * @constructor
+ */
+function ToolsFactory(
+    Tools,
+    callStack,
+    translator,
+    globalNamespace,
+    loader,
+    includer,
+    onceIncluder,
+    referenceFactory,
+    scopeFactory,
+    valueFactory
+) {
+    /**
+     * @type {CallStack}
+     */
+    this.callStack = callStack;
+    /**
+     * @type {GlobalNamespace}
+     */
+    this.globalNamespace = globalNamespace;
+    /**
+     * @type {Includer}
+     */
+    this.includer = includer;
+    /**
+     * @type {Loader}
+     */
+    this.loader = loader;
+    /**
+     * @type {OnceIncluder}
+     */
+    this.onceIncluder = onceIncluder;
+    /**
+     * @type {ReferenceFactory}
+     */
+    this.referenceFactory = referenceFactory;
+    /**
+     * @type {ScopeFactory}
+     */
+    this.scopeFactory = scopeFactory;
+    /**
+     * @type {class}
+     */
+    this.Tools = Tools;
+    /**
+     * @type {Translator}
+     */
+    this.translator = translator;
+    /**
+     * @type {ValueFactory}
+     */
+    this.valueFactory = valueFactory;
+}
+
+_.extend(ToolsFactory.prototype, {
+    /**
+     * Creates a new Tools instance
+     *
+     * @param {Environment} environment
+     * @param {Module} module PHP module
+     * @param {NamespaceScope} topLevelNamespaceScope
+     * @param {Scope} topLevelScope
+     * @param {Object} options
+     * @returns {Tools}
+     */
+    create: function (
+        environment,
+        module,
+        topLevelNamespaceScope,
+        topLevelScope,
+        options
+    ) {
+        var factory = this;
+
+        return new factory.Tools(
+            factory.callStack,
+            environment,
+            factory.translator,
+            factory.globalNamespace,
+            factory.loader,
+            factory.includer,
+            factory.onceIncluder,
+            module,
+            options,
+            factory.referenceFactory,
+            factory.scopeFactory,
+            topLevelNamespaceScope,
+            topLevelScope,
+            factory.valueFactory
+        );
+    }
+});
+
+module.exports = ToolsFactory;
 
 
 /***/ }),
@@ -20888,7 +21355,7 @@ _.extend(CallableType.prototype, {
      * {@inheritdoc}
      */
     allowsValue: function (value) {
-        return value.isCallable(this.namespaceScope) ||
+        return value.isCallable(this.namespaceScope.getGlobalNamespace()) ||
             (this.allowsNull() && value.getType() === 'null');
     },
 
@@ -21778,7 +22245,7 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
         /**
          * Determines whether this value is callable
          *
-         * @param {NamespaceScope} namespaceScope
+         * @param {Namespace} globalNamespace
          * @returns {boolean}
          */
         isCallable: throwUnimplemented,
@@ -22668,9 +23135,8 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
         /**
          * {@inheritdoc}
          */
-        isCallable: function (namespaceScope) {
+        isCallable: function (globalNamespace) {
             var classObject,
-                globalNamespace,
                 methodNameValue,
                 objectOrClassValue,
                 arrayValue = this,
@@ -22680,7 +23146,6 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
                 return false;
             }
 
-            globalNamespace = namespaceScope.getGlobalNamespace();
             objectOrClassValue = value[0].getValue();
             methodNameValue = value[1].getValue();
 
@@ -25852,14 +26317,13 @@ module.exports = __webpack_require__(/*! pauser */ "./node_modules/pauser/index.
         /**
          * {@inheritdoc}
          */
-        isCallable: function (namespaceScope) {
+        isCallable: function (globalNamespace) {
             // Must just be the name of a function or static method - as this is a normal string
             // and not a bareword, it should just be resolved as a FQCN
             // and not relative to the current namespace scope
 
             var className,
                 classObject,
-                globalNamespace = namespaceScope.getGlobalNamespace(),
                 match,
                 methodName,
                 value = this;
@@ -29077,7 +29541,7 @@ var API = __webpack_require__(/*! ../src/API */ "./node_modules/phpify/src/API.j
     phpRuntime = __webpack_require__(/*! phpruntime/psync */ "./node_modules/phpruntime/psync.js"),
     io = new IO(console),
     environmentProvider = new EnvironmentProvider(phpRuntime, performance, io),
-    api = new API(FileSystem, Loader, ModuleRepository, environmentProvider, phpConfigImporter),
+    api = new API(FileSystem, Loader, ModuleRepository, environmentProvider, phpConfigImporter, __webpack_require__.c),
     loader = api.createLoader();
 
 module.exports = loader;
@@ -29115,6 +29579,7 @@ var _ = __webpack_require__(/*! microdash */ "./node_modules/microdash/index.js"
  * @param {class} ModuleRepository
  * @param {EnvironmentProvider} environmentProvider
  * @param {ConfigImporter} phpConfigImporter
+ * @param {Object} requireCache
  * @constructor
  */
 function API(
@@ -29122,7 +29587,8 @@ function API(
     Loader,
     ModuleRepository,
     environmentProvider,
-    phpConfigImporter
+    phpConfigImporter,
+    requireCache
 ) {
     /**
      * @type {EnvironmentProvider}
@@ -29144,6 +29610,10 @@ function API(
      * @type {ConfigImporter}
      */
     this.phpConfigImporter = phpConfigImporter;
+    /**
+     * @type {Object}
+     */
+    this.requireCache = requireCache;
 }
 
 _.extend(API.prototype, {
@@ -29155,7 +29625,7 @@ _.extend(API.prototype, {
      */
     createLoader: function () {
         var api = this,
-            moduleRepository = new api.ModuleRepository(__webpack_require__.c),
+            moduleRepository = new api.ModuleRepository(api.requireCache),
             fileSystem = new api.FileSystem(moduleRepository);
 
         return new api.Loader(moduleRepository, fileSystem, api.environmentProvider, api.phpConfigImporter);
@@ -29642,17 +30112,17 @@ _.extend(Loader.prototype, {
 
     /**
      * Configures the environment and path for the given module, and either executes it
-     * and returns the result or just returns the module factory depending on mode.
-     * Used by all compiled PHP modules
+     * and exports the result or just exports the module factory depending on mode.
+     * Used by all compiled PHP modules.
      *
      * @param {string} filePath
+     * @param {Object} module CommonJS module object
      * @param {Function} moduleFactory
-     * @returns {Function|Promise|Value}
      */
-    load: function (filePath, moduleFactory) {
+    load: function (filePath, module, moduleFactory) {
         var loader = this;
 
-        return loader.moduleRepository.load(filePath, moduleFactory, loader.getEnvironment());
+        module.exports = loader.moduleRepository.load(filePath, module.id, moduleFactory, loader.getEnvironment());
     }
 });
 
@@ -29692,9 +30162,9 @@ var _ = __webpack_require__(/*! microdash */ "./node_modules/microdash/index.js"
  */
 function ModuleRepository(requireCache) {
     /**
-     * @type {Object.<string, Function>} PHP module factories, indexed by path
+     * @type {Object.<string, {id: string|number, factory: Function}>} PHP module factories, indexed by path
      */
-    this.configuredModuleFactories = {};
+    this.configuredModules = {};
     /**
      * @type {boolean} Indicates that a module's factory function should be returned without execution
      */
@@ -29726,12 +30196,13 @@ _.extend(ModuleRepository.prototype, {
      */
     getModuleFactory: function (filePath) {
         var cachePath,
+            configuredModule,
             configuredModuleFactory,
             repository = this;
 
-        if (hasOwn.call(repository.configuredModuleFactories, filePath)) {
+        if (hasOwn.call(repository.configuredModules, filePath)) {
             // Module has already been configured: return the cached module factory
-            return repository.configuredModuleFactories[filePath];
+            return repository.configuredModules[filePath].factory;
         }
 
         // Module has not yet been loaded: require it via the fetcher function. The transpiled module
@@ -29748,26 +30219,30 @@ _.extend(ModuleRepository.prototype, {
 
         // By this point, the require()'d module should have called back via .prepare()
         // [via <Public API::Loader>.run()] and so its wrapper should be in the
-        if (!hasOwn.call(repository.configuredModuleFactories, filePath)) {
+        if (!hasOwn.call(repository.configuredModules, filePath)) {
             throw new Error('Unexpected state: module "' + filePath + '" should have been loaded by now');
         }
-        if (repository.configuredModuleFactories[filePath] !== configuredModuleFactory) {
+        if (repository.configuredModules[filePath].factory !== configuredModuleFactory) {
             throw new Error('Unexpected state: factory for module "' + filePath + '" loaded incorrectly');
         }
 
         cachePath = './' + filePath;
+        configuredModule = repository.configuredModules[filePath];
 
-        if (!hasOwn.call(repository.requireCache, cachePath)) {
-            throw new Error('Expected path "' + cachePath + '" to be in require.cache, but it was not');
+        if (!hasOwn.call(repository.requireCache, configuredModule.id)) {
+            throw new Error(
+                'Expected path "' + cachePath + '" (id "' + configuredModule.id + '") to be in require.cache, ' +
+                'but it was not'
+            );
         }
 
         // Delete the module's exports object from the cache: it was not executed as we only wanted
         // to extract the factory function, so that will have been stored instead.
         // If the module's factory function is ever needed again, it will be fetched from the
-        // .configuredModuleFactories[...] cache instead
-        delete repository.requireCache[cachePath];
+        // .configuredModules[...] cache instead
+        delete repository.requireCache[configuredModule.id];
 
-        return repository.configuredModuleFactories[filePath];
+        return repository.configuredModules[filePath].factory;
     },
 
     /**
@@ -29786,15 +30261,19 @@ _.extend(ModuleRepository.prototype, {
      * Used by all compiled PHP modules
      *
      * @param {string} filePath
+     * @param {string|number} moduleID
      * @param {Function} moduleFactory
      * @param {Environment} environment
      * @returns {Function}
      */
-    load: function (filePath, moduleFactory, environment) {
+    load: function (filePath, moduleID, moduleFactory, environment) {
         var repository = this,
             configuredModuleFactory = moduleFactory.using({path: filePath}, environment);
 
-        repository.configuredModuleFactories[filePath] = configuredModuleFactory;
+        repository.configuredModules[filePath] = {
+            id: moduleID,
+            factory: configuredModuleFactory
+        };
 
         if (repository.loadingModuleFactoryOnly) {
             // Only the factory is needed, don't execute
@@ -29814,7 +30293,7 @@ _.extend(ModuleRepository.prototype, {
     moduleExists: function (filePath) {
         var repository = this;
 
-        if (hasOwn.call(repository.configuredModuleFactories, filePath)) {
+        if (hasOwn.call(repository.configuredModules, filePath)) {
             // Module has already been configured: return the cached module factory
             return true;
         }
@@ -29924,14 +30403,14 @@ __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpif
     switch (path) {
     case handlePath("src/Markdown.php"): return __webpack_require__(/*! ./../../../../src/Markdown.php */ "./src/Markdown.php");
     case handlePath("vendor/autoload.php"): return __webpack_require__(/*! ./../../../../vendor/autoload.php */ "./vendor/autoload.php");
+    case handlePath("vendor/composer/ClassLoader.php"): return __webpack_require__(/*! ./../../../../vendor/composer/ClassLoader.php */ "./vendor/composer/ClassLoader.php");
+    case handlePath("vendor/composer/InstalledVersions.php"): return __webpack_require__(/*! ./../../../../vendor/composer/InstalledVersions.php */ "./vendor/composer/InstalledVersions.php");
     case handlePath("vendor/composer/autoload_classmap.php"): return __webpack_require__(/*! ./../../../../vendor/composer/autoload_classmap.php */ "./vendor/composer/autoload_classmap.php");
     case handlePath("vendor/composer/autoload_namespaces.php"): return __webpack_require__(/*! ./../../../../vendor/composer/autoload_namespaces.php */ "./vendor/composer/autoload_namespaces.php");
     case handlePath("vendor/composer/autoload_psr4.php"): return __webpack_require__(/*! ./../../../../vendor/composer/autoload_psr4.php */ "./vendor/composer/autoload_psr4.php");
     case handlePath("vendor/composer/autoload_real.php"): return __webpack_require__(/*! ./../../../../vendor/composer/autoload_real.php */ "./vendor/composer/autoload_real.php");
     case handlePath("vendor/composer/autoload_static.php"): return __webpack_require__(/*! ./../../../../vendor/composer/autoload_static.php */ "./vendor/composer/autoload_static.php");
-    case handlePath("vendor/composer/ClassLoader.php"): return __webpack_require__(/*! ./../../../../vendor/composer/ClassLoader.php */ "./vendor/composer/ClassLoader.php");
     case handlePath("vendor/composer/installed.php"): return __webpack_require__(/*! ./../../../../vendor/composer/installed.php */ "./vendor/composer/installed.php");
-    case handlePath("vendor/composer/InstalledVersions.php"): return __webpack_require__(/*! ./../../../../vendor/composer/InstalledVersions.php */ "./vendor/composer/InstalledVersions.php");
     }
 
     return checkExistence ? exists : null;
@@ -30994,7 +31473,6 @@ module.exports = function (internals) {
                 // any normal function callback will need to be fully-qualified
                 // TODO: Test what happens with barewords, eg. `array_map(MyClass::staticMethod, [...])`
                 var elementValue = firstArrayValue.getElementByKey(keyValue),
-                    // FIXME: This does not handle async mode!!
                     mappedElementValue = callbackValue.call([elementValue], globalNamespace);
 
                 result.push(new KeyValuePair(keyValue, mappedElementValue));
@@ -33873,13 +34351,7 @@ module.exports = function (internals) {
          * @returns {BooleanValue}
          */
         'is_callable': function (valueReference, syntaxOnlyReference, callableNameReference) {
-            var namespaceScope = {
-                    // FIXME: We should really change Value.isCallable() to take the global namespace instead
-                    getGlobalNamespace: function () {
-                        return globalNamespace;
-                    }
-                },
-                syntaxOnly = syntaxOnlyReference && syntaxOnlyReference.getValue().getNative(),
+            var syntaxOnly = syntaxOnlyReference && syntaxOnlyReference.getValue().getNative(),
                 value = valueReference.getValue();
 
             if (syntaxOnly) {
@@ -33890,7 +34362,7 @@ module.exports = function (internals) {
                 throw new Error('is_callable() :: callable_name is not supported');
             }
 
-            return valueFactory.createBoolean(value.isCallable(namespaceScope));
+            return valueFactory.createBoolean(value.isCallable(globalNamespace));
         },
 
         'is_float': createTypeChecker('is_float', 'float'),
@@ -34767,10 +35239,12 @@ var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -34806,7 +35280,7 @@ var BoldNode = /** @class */ (function () {
     return BoldNode;
 }());
 exports.default = BoldNode;
-exports.factory = function (internals) {
+var factory = function (internals) {
     return /** @class */ (function (_super) {
         __extends(ModeSpecificBoldNode, _super);
         function ModeSpecificBoldNode(elements) {
@@ -34815,6 +35289,7 @@ exports.factory = function (internals) {
         return ModeSpecificBoldNode;
     }(BoldNode));
 };
+exports.factory = factory;
 //# sourceMappingURL=BoldNode.js.map
 
 /***/ }),
@@ -34840,10 +35315,12 @@ var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -34878,7 +35355,7 @@ var DocumentNode = /** @class */ (function () {
     return DocumentNode;
 }());
 exports.default = DocumentNode;
-exports.factory = function (internals) {
+var factory = function (internals) {
     return /** @class */ (function (_super) {
         __extends(ModeSpecificDocumentNode, _super);
         function ModeSpecificDocumentNode(elements) {
@@ -34887,6 +35364,7 @@ exports.factory = function (internals) {
         return ModeSpecificDocumentNode;
     }(DocumentNode));
 };
+exports.factory = factory;
 //# sourceMappingURL=DocumentNode.js.map
 
 /***/ }),
@@ -34928,9 +35406,10 @@ var ExpressionNode = /** @class */ (function () {
     return ExpressionNode;
 }());
 exports.default = ExpressionNode;
-exports.factory = function () {
+var factory = function () {
     return ExpressionNode;
 };
+exports.factory = factory;
 //# sourceMappingURL=ExpressionNode.js.map
 
 /***/ }),
@@ -34956,10 +35435,12 @@ var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -34997,7 +35478,7 @@ var HeadingNode = /** @class */ (function () {
     return HeadingNode;
 }());
 exports.default = HeadingNode;
-exports.factory = function (internals) {
+var factory = function (internals) {
     return /** @class */ (function (_super) {
         __extends(ModeSpecificHeadingNode, _super);
         function ModeSpecificHeadingNode(level, elements) {
@@ -35006,6 +35487,7 @@ exports.factory = function (internals) {
         return ModeSpecificHeadingNode;
     }(HeadingNode));
 };
+exports.factory = factory;
 //# sourceMappingURL=HeadingNode.js.map
 
 /***/ }),
@@ -35039,9 +35521,10 @@ var InlineCodeNode = /** @class */ (function () {
     return InlineCodeNode;
 }());
 exports.default = InlineCodeNode;
-exports.factory = function () {
+var factory = function () {
     return InlineCodeNode;
 };
+exports.factory = factory;
 //# sourceMappingURL=InlineCodeNode.js.map
 
 /***/ }),
@@ -35067,10 +35550,12 @@ var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -35106,7 +35591,7 @@ var ItalicNode = /** @class */ (function () {
     return ItalicNode;
 }());
 exports.default = ItalicNode;
-exports.factory = function (internals) {
+var factory = function (internals) {
     return /** @class */ (function (_super) {
         __extends(ModeSpecificItalicNode, _super);
         function ModeSpecificItalicNode(elements) {
@@ -35115,6 +35600,7 @@ exports.factory = function (internals) {
         return ModeSpecificItalicNode;
     }(ItalicNode));
 };
+exports.factory = factory;
 //# sourceMappingURL=ItalicNode.js.map
 
 /***/ }),
@@ -35140,10 +35626,12 @@ var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -35179,7 +35667,7 @@ var ListItemNode = /** @class */ (function () {
     return ListItemNode;
 }());
 exports.default = ListItemNode;
-exports.factory = function (internals) {
+var factory = function (internals) {
     return /** @class */ (function (_super) {
         __extends(ModeSpecificListItemNode, _super);
         function ModeSpecificListItemNode(elements) {
@@ -35188,6 +35676,7 @@ exports.factory = function (internals) {
         return ModeSpecificListItemNode;
     }(ListItemNode));
 };
+exports.factory = factory;
 //# sourceMappingURL=ListItemNode.js.map
 
 /***/ }),
@@ -35221,9 +35710,10 @@ var PlainTextNode = /** @class */ (function () {
     return PlainTextNode;
 }());
 exports.default = PlainTextNode;
-exports.factory = function () {
+var factory = function () {
     return PlainTextNode;
 };
+exports.factory = factory;
 //# sourceMappingURL=PlainTextNode.js.map
 
 /***/ }),
@@ -35249,10 +35739,12 @@ var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -35288,7 +35780,7 @@ var UnorderedListNode = /** @class */ (function () {
     return UnorderedListNode;
 }());
 exports.default = UnorderedListNode;
-exports.factory = function (internals) {
+var factory = function (internals) {
     return /** @class */ (function (_super) {
         __extends(ModeSpecificUnorderedListNode, _super);
         function ModeSpecificUnorderedListNode(listItemNodes) {
@@ -35297,6 +35789,7 @@ exports.factory = function (internals) {
         return ModeSpecificUnorderedListNode;
     }(UnorderedListNode));
 };
+exports.factory = factory;
 //# sourceMappingURL=UnorderedListNode.js.map
 
 /***/ }),
@@ -36148,6 +36641,39 @@ module.exports = g;
 
 /***/ }),
 
+/***/ "./node_modules/webpack/buildin/module.js":
+/*!***********************************!*\
+  !*** (webpack)/buildin/module.js ***!
+  \***********************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = function(module) {
+	if (!module.webpackPolyfill) {
+		module.deprecate = function() {};
+		module.paths = [];
+		// module.parent = undefined by default
+		if (!module.children) module.children = [];
+		Object.defineProperty(module, "loaded", {
+			enumerable: true,
+			get: function() {
+				return module.l;
+			}
+		});
+		Object.defineProperty(module, "id", {
+			enumerable: true,
+			get: function() {
+				return module.i;
+			}
+		});
+		module.webpackPolyfill = 1;
+	}
+	return module;
+};
+
+
+/***/ }),
+
 /***/ "./src/Markdown.php":
 /*!**************************!*\
   !*** ./src/Markdown.php ***!
@@ -36155,8 +36681,9 @@ module.exports = g;
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
-module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("src/Markdown.php", __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 12;if (namespaceResult = (function (globalNamespace) {var namespace = globalNamespace.getDescendant("MyUniterProjects\\MarkdownPluginExample"), namespaceScope = tools.createNamespaceScope(namespace);line = 14;(function () {var currentClass = namespace.defineClass("Markdown", {superClass: null, interfaces: [], staticProperties: {}, properties: {}, methods: {"getHtml": {isStatic: false, method: function _getHtml() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $name = tools.createDebugVar(scope, "name");var $where = tools.createDebugVar(scope, "where");var $myMarkdownTree = tools.createDebugVar(scope, "myMarkdownTree");line = 18;(line = 18, (line = 18, scope.getVariable("name")).setValue((line = 18, tools.valueFactory.createString("Archie"))));line = 19;(line = 19, (line = 19, scope.getVariable("where")).setValue((line = 19, tools.valueFactory.createString("just where exactly"))));line = 22;(line = 22, (line = 22, scope.getVariable("myMarkdownTree")).setValue((line = 22, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\DocumentNode"), [tools.valueFactory.createArray([(line = 23, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\HeadingNode"), [tools.valueFactory.createInteger(3),tools.valueFactory.createArray([(line = 23, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("My intro")]))])])),(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\UnorderedListNode"), [tools.valueFactory.createArray([(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ListItemNode"), [tools.valueFactory.createArray([(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("Firstly, hello ")])),(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ItalicNode"), [tools.valueFactory.createArray([(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ExpressionNode"), [(line = 24, scope.getVariable("name").getValue())]))])])),(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString(", how are ")])),(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ItalicNode"), [tools.valueFactory.createArray([(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("you")]))])])),(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("?")]))])])),(line = 25, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ListItemNode"), [tools.valueFactory.createArray([(line = 25, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("Secondly, ")])),(line = 25, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ExpressionNode"), [(line = 25, scope.getVariable("where").getValue())])),(line = 25, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString(" did you go?")]))])]))])])),(line = 26, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("        ")]))])]))));line = 28;return (line = 28, (line = 28, scope.getVariable("myMarkdownTree").getValue()).callMethod((line = 28, tools.valueFactory.createBarewordString("toHtml")).getNative(), []));}, args: [], line: 16}}, constants: {}}, namespaceScope);}());}(namespace))) { return namespaceResult; }return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */(function(module) {__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
+__webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("src/Markdown.php", module, __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 12;if (namespaceResult = (function (globalNamespace) {var namespace = globalNamespace.getDescendant("MyUniterProjects\\MarkdownPluginExample"), namespaceScope = tools.createNamespaceScope(namespace);line = 14;(function () {var currentClass = namespace.defineClass("Markdown", {superClass: null, interfaces: [], staticProperties: {}, properties: {}, methods: {"getHtml": {isStatic: false, method: function _getHtml() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $name = tools.createDebugVar(scope, "name");var $where = tools.createDebugVar(scope, "where");var $myMarkdownTree = tools.createDebugVar(scope, "myMarkdownTree");line = 18;(line = 18, (line = 18, scope.getVariable("name")).setValue((line = 18, tools.valueFactory.createString("Archie"))));line = 19;(line = 19, (line = 19, scope.getVariable("where")).setValue((line = 19, tools.valueFactory.createString("just where exactly"))));line = 22;(line = 22, (line = 22, scope.getVariable("myMarkdownTree")).setValue((line = 22, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\DocumentNode"), [tools.valueFactory.createArray([(line = 23, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\HeadingNode"), [tools.valueFactory.createInteger(3),tools.valueFactory.createArray([(line = 23, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("My intro")]))])])),(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\UnorderedListNode"), [tools.valueFactory.createArray([(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ListItemNode"), [tools.valueFactory.createArray([(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("Firstly, hello ")])),(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ItalicNode"), [tools.valueFactory.createArray([(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ExpressionNode"), [(line = 24, scope.getVariable("name").getValue())]))])])),(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString(", how are ")])),(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ItalicNode"), [tools.valueFactory.createArray([(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("you")]))])])),(line = 24, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("?")]))])])),(line = 25, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ListItemNode"), [tools.valueFactory.createArray([(line = 25, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("Secondly, ")])),(line = 25, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\ExpressionNode"), [(line = 25, scope.getVariable("where").getValue())])),(line = 25, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString(" did you go?")]))])]))])])),(line = 26, tools.createInstance(namespaceScope, tools.valueFactory.createString("Uniter\\Markdown\\Node\\PlainTextNode"), [tools.valueFactory.createString("        ")]))])]))));line = 28;return (line = 28, (line = 28, scope.getVariable("myMarkdownTree").getValue()).callMethod((line = 28, tools.valueFactory.createBarewordString("toHtml")).getNative(), []));}, args: [], line: 16}}, constants: {}}, namespaceScope);}());}(namespace))) { return namespaceResult; }return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(/*! ./../node_modules/webpack/buildin/module.js */ "./node_modules/webpack/buildin/module.js")(module)))
 
 /***/ }),
 
@@ -36167,8 +36694,9 @@ module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./n
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
-module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/autoload.php", __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 5;(line = 5, tools.requireOnce((line = 5, (line = 5, tools.getPathDirectory()).concat((line = 5, tools.valueFactory.createString("/composer/autoload_real.php")))).getNative(), scope));line = 7;return (line = 7, (line = 7, tools.valueFactory.createBarewordString("ComposerAutoloaderInita938c0f9513fc8fb70dd34967ae81190")).callStaticMethod((line = 7, tools.valueFactory.createBarewordString("getLoader")), [], namespaceScope, false));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */(function(module) {__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
+__webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/autoload.php", module, __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 5;(line = 5, tools.requireOnce((line = 5, (line = 5, tools.getPathDirectory()).concat((line = 5, tools.valueFactory.createString("/composer/autoload_real.php")))).getNative(), scope));line = 7;return (line = 7, (line = 7, tools.valueFactory.createBarewordString("ComposerAutoloaderInita938c0f9513fc8fb70dd34967ae81190")).callStaticMethod((line = 7, tools.valueFactory.createBarewordString("getLoader")), [], namespaceScope, false));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(/*! ./../node_modules/webpack/buildin/module.js */ "./node_modules/webpack/buildin/module.js")(module)))
 
 /***/ }),
 
@@ -36179,8 +36707,9 @@ module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./n
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
-module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/ClassLoader.php", __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 13;if (namespaceResult = (function (globalNamespace) {var namespace = globalNamespace.getDescendant("Composer\\Autoload"), namespaceScope = tools.createNamespaceScope(namespace);line = 43;(function () {var currentClass = namespace.defineClass("ClassLoader", {superClass: null, interfaces: [], staticProperties: {"registeredLoaders": {visibility: "private", value: function (currentClass) { return (line = 62, tools.valueFactory.createArray([])); }}}, properties: {"vendorDir": {visibility: "private", value: function () { return null; }}, "prefixLengthsPsr4": {visibility: "private", value: function () { return (line = 48, tools.valueFactory.createArray([])); }}, "prefixDirsPsr4": {visibility: "private", value: function () { return (line = 49, tools.valueFactory.createArray([])); }}, "fallbackDirsPsr4": {visibility: "private", value: function () { return (line = 50, tools.valueFactory.createArray([])); }}, "prefixesPsr0": {visibility: "private", value: function () { return (line = 53, tools.valueFactory.createArray([])); }}, "fallbackDirsPsr0": {visibility: "private", value: function () { return (line = 54, tools.valueFactory.createArray([])); }}, "useIncludePath": {visibility: "private", value: function () { return (line = 56, tools.valueFactory.createBoolean(false)); }}, "classMap": {visibility: "private", value: function () { return (line = 57, tools.valueFactory.createArray([])); }}, "classMapAuthoritative": {visibility: "private", value: function () { return (line = 58, tools.valueFactory.createBoolean(false)); }}, "missingClasses": {visibility: "private", value: function () { return (line = 59, tools.valueFactory.createArray([])); }}, "apcuPrefix": {visibility: "private", value: function () { return null; }}}, methods: {"__construct": {isStatic: false, method: function ___construct($vendorDir) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("vendorDir").setValue($vendorDir.getValue());var $vendorDir = tools.createDebugVar(scope, "vendorDir");var $this = tools.createDebugVar(scope, "this");var $vendorDir = tools.createDebugVar(scope, "vendorDir");line = 66;(line = 66, (line = 66, tools.implyObject((line = 66, scope.getVariable("this"))).getInstancePropertyByName((line = 66, tools.valueFactory.createBarewordString("vendorDir")))).setValue((line = 66, scope.getVariable("vendorDir").getValue())));}, args: [{"name":"vendorDir","value":function () { return (line = 64, tools.valueFactory.createNull()); }}], line: 64}, "getPrefixes": {isStatic: false, method: function _getPrefixes() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 71;if ((line = 71, (line = 71, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 71, (line = 71, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 71, tools.valueFactory.createBarewordString("prefixesPsr0")))).isEmpty());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 72;return (line = 72, ((line = 72, tools.valueFactory.createBarewordString("call_user_func_array")).call([(line = 72, tools.valueFactory.createString("array_merge")), (line = 72, ((line = 72, tools.valueFactory.createBarewordString("array_values")).call([(line = 72, (line = 72, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 72, tools.valueFactory.createBarewordString("prefixesPsr0"))))], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()));}line = 75;return (line = 75, tools.valueFactory.createArray([]));}, args: [], line: 69}, "getPrefixesPsr4": {isStatic: false, method: function _getPrefixesPsr4() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 80;return (line = 80, (line = 80, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 80, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue());}, args: [], line: 78}, "getFallbackDirs": {isStatic: false, method: function _getFallbackDirs() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 85;return (line = 85, (line = 85, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 85, tools.valueFactory.createBarewordString("fallbackDirsPsr0"))).getValue());}, args: [], line: 83}, "getFallbackDirsPsr4": {isStatic: false, method: function _getFallbackDirsPsr4() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 90;return (line = 90, (line = 90, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 90, tools.valueFactory.createBarewordString("fallbackDirsPsr4"))).getValue());}, args: [], line: 88}, "getClassMap": {isStatic: false, method: function _getClassMap() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 95;return (line = 95, (line = 95, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 95, tools.valueFactory.createBarewordString("classMap"))).getValue());}, args: [], line: 93}, "addClassMap": {isStatic: false, method: function _addClassMap($classMap) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("classMap").setValue($classMap.getValue());var $classMap = tools.createDebugVar(scope, "classMap");var $this = tools.createDebugVar(scope, "this");var $classMap = tools.createDebugVar(scope, "classMap");line = 103;if ((line = 103, (line = 103, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 103, tools.valueFactory.createBarewordString("classMap"))).getValue()).coerceToBoolean().getNative()) {line = 104;(line = 104, (line = 104, tools.implyObject((line = 104, scope.getVariable("this"))).getInstancePropertyByName((line = 104, tools.valueFactory.createBarewordString("classMap")))).setValue((line = 104, ((line = 104, tools.valueFactory.createBarewordString("array_merge")).call([(line = 104, (line = 104, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 104, tools.valueFactory.createBarewordString("classMap")))), (line = 104, scope.getVariable("classMap"))], namespaceScope) || tools.valueFactory.createNull()))));} else {line = 106;(line = 106, (line = 106, tools.implyObject((line = 106, scope.getVariable("this"))).getInstancePropertyByName((line = 106, tools.valueFactory.createBarewordString("classMap")))).setValue((line = 106, scope.getVariable("classMap").getValue())));}}, args: [{"type":"array","name":"classMap"}], line: 101}, "add": {isStatic: false, method: function _add($prefix, $paths, $prepend) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("prefix").setValue($prefix.getValue());var $prefix = tools.createDebugVar(scope, "prefix");scope.getVariable("paths").setValue($paths.getValue());var $paths = tools.createDebugVar(scope, "paths");scope.getVariable("prepend").setValue($prepend.getValue());var $prepend = tools.createDebugVar(scope, "prepend");var $this = tools.createDebugVar(scope, "this");var $prefix = tools.createDebugVar(scope, "prefix");var $prepend = tools.createDebugVar(scope, "prepend");var $paths = tools.createDebugVar(scope, "paths");var $first = tools.createDebugVar(scope, "first");line = 120;if ((line = 120, (line = 120, scope.getVariable("prefix").getValue()).logicalNot()).coerceToBoolean().getNative()) {line = 121;if ((line = 121, scope.getVariable("prepend").getValue()).coerceToBoolean().getNative()) {line = 122;(line = 122, (line = 122, tools.implyObject((line = 122, scope.getVariable("this"))).getInstancePropertyByName((line = 122, tools.valueFactory.createBarewordString("fallbackDirsPsr0")))).setValue((line = 122, ((line = 122, tools.valueFactory.createBarewordString("array_merge")).call([(line = 123, (line = 123, scope.getVariable("paths").getValue()).coerceToArray()), (line = 124, (line = 124, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 124, tools.valueFactory.createBarewordString("fallbackDirsPsr0"))))], namespaceScope) || tools.valueFactory.createNull()))));} else {line = 127;(line = 127, (line = 127, tools.implyObject((line = 127, scope.getVariable("this"))).getInstancePropertyByName((line = 127, tools.valueFactory.createBarewordString("fallbackDirsPsr0")))).setValue((line = 127, ((line = 127, tools.valueFactory.createBarewordString("array_merge")).call([(line = 128, (line = 128, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 128, tools.valueFactory.createBarewordString("fallbackDirsPsr0")))), (line = 129, (line = 129, scope.getVariable("paths").getValue()).coerceToArray())], namespaceScope) || tools.valueFactory.createNull()))));}line = 133;return tools.valueFactory.createNull();}line = 136;(line = 136, (line = 136, scope.getVariable("first")).setValue((line = 136, (line = 136, scope.getVariable("prefix").getValue()).getElementByKey((line = 136, tools.valueFactory.createInteger(0))).getValue())));line = 137;if ((line = 137, (line = 137, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 137, (line = 137, (line = 137, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 137, tools.valueFactory.createBarewordString("prefixesPsr0"))).getValue()).getElementByKey((line = 137, scope.getVariable("first").getValue())).getValue().getElementByKey((line = 137, scope.getVariable("prefix").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 138;(line = 138, (line = 138, tools.implyArray(tools.implyArray((line = 138, tools.implyObject((line = 138, scope.getVariable("this"))).getInstancePropertyByName((line = 138, tools.valueFactory.createBarewordString("prefixesPsr0"))))).getElementByKey((line = 138, scope.getVariable("first").getValue()))).getElementByKey((line = 138, scope.getVariable("prefix").getValue()))).setValue((line = 138, (line = 138, scope.getVariable("paths").getValue()).coerceToArray())));line = 140;return tools.valueFactory.createNull();}line = 142;if ((line = 142, scope.getVariable("prepend").getValue()).coerceToBoolean().getNative()) {line = 143;(line = 143, (line = 143, tools.implyArray(tools.implyArray((line = 143, tools.implyObject((line = 143, scope.getVariable("this"))).getInstancePropertyByName((line = 143, tools.valueFactory.createBarewordString("prefixesPsr0"))))).getElementByKey((line = 143, scope.getVariable("first").getValue()))).getElementByKey((line = 143, scope.getVariable("prefix").getValue()))).setValue((line = 143, ((line = 143, tools.valueFactory.createBarewordString("array_merge")).call([(line = 144, (line = 144, scope.getVariable("paths").getValue()).coerceToArray()), (line = 145, (line = 145, (line = 145, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 145, tools.valueFactory.createBarewordString("prefixesPsr0"))).getValue()).getElementByKey((line = 145, scope.getVariable("first").getValue())).getValue().getElementByKey((line = 145, scope.getVariable("prefix").getValue())))], namespaceScope) || tools.valueFactory.createNull()))));} else {line = 148;(line = 148, (line = 148, tools.implyArray(tools.implyArray((line = 148, tools.implyObject((line = 148, scope.getVariable("this"))).getInstancePropertyByName((line = 148, tools.valueFactory.createBarewordString("prefixesPsr0"))))).getElementByKey((line = 148, scope.getVariable("first").getValue()))).getElementByKey((line = 148, scope.getVariable("prefix").getValue()))).setValue((line = 148, ((line = 148, tools.valueFactory.createBarewordString("array_merge")).call([(line = 149, (line = 149, (line = 149, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 149, tools.valueFactory.createBarewordString("prefixesPsr0"))).getValue()).getElementByKey((line = 149, scope.getVariable("first").getValue())).getValue().getElementByKey((line = 149, scope.getVariable("prefix").getValue()))), (line = 150, (line = 150, scope.getVariable("paths").getValue()).coerceToArray())], namespaceScope) || tools.valueFactory.createNull()))));}}, args: [{"name":"prefix"},{"name":"paths"},{"name":"prepend","value":function () { return (line = 118, tools.valueFactory.createBoolean(false)); }}], line: 118}, "addPsr4": {isStatic: false, method: function _addPsr4($prefix, $paths, $prepend) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("prefix").setValue($prefix.getValue());var $prefix = tools.createDebugVar(scope, "prefix");scope.getVariable("paths").setValue($paths.getValue());var $paths = tools.createDebugVar(scope, "paths");scope.getVariable("prepend").setValue($prepend.getValue());var $prepend = tools.createDebugVar(scope, "prepend");var $this = tools.createDebugVar(scope, "this");var $prefix = tools.createDebugVar(scope, "prefix");var $prepend = tools.createDebugVar(scope, "prepend");var $paths = tools.createDebugVar(scope, "paths");var $length = tools.createDebugVar(scope, "length");line = 167;if ((line = 167, (line = 167, scope.getVariable("prefix").getValue()).logicalNot()).coerceToBoolean().getNative()) {line = 169;if ((line = 169, scope.getVariable("prepend").getValue()).coerceToBoolean().getNative()) {line = 170;(line = 170, (line = 170, tools.implyObject((line = 170, scope.getVariable("this"))).getInstancePropertyByName((line = 170, tools.valueFactory.createBarewordString("fallbackDirsPsr4")))).setValue((line = 170, ((line = 170, tools.valueFactory.createBarewordString("array_merge")).call([(line = 171, (line = 171, scope.getVariable("paths").getValue()).coerceToArray()), (line = 172, (line = 172, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 172, tools.valueFactory.createBarewordString("fallbackDirsPsr4"))))], namespaceScope) || tools.valueFactory.createNull()))));} else {line = 175;(line = 175, (line = 175, tools.implyObject((line = 175, scope.getVariable("this"))).getInstancePropertyByName((line = 175, tools.valueFactory.createBarewordString("fallbackDirsPsr4")))).setValue((line = 175, ((line = 175, tools.valueFactory.createBarewordString("array_merge")).call([(line = 176, (line = 176, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 176, tools.valueFactory.createBarewordString("fallbackDirsPsr4")))), (line = 177, (line = 177, scope.getVariable("paths").getValue()).coerceToArray())], namespaceScope) || tools.valueFactory.createNull()))));}} else {line = 180;if ((line = 180, (line = 180, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 180, (line = 180, (line = 180, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 180, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue()).getElementByKey((line = 180, scope.getVariable("prefix").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 182;(line = 182, (line = 182, scope.getVariable("length")).setValue((line = 182, ((line = 182, tools.valueFactory.createBarewordString("strlen")).call([(line = 182, scope.getVariable("prefix"))], namespaceScope) || tools.valueFactory.createNull()))));line = 183;if ((line = 183, (line = 183, tools.valueFactory.createString("\\")).isNotIdenticalTo((line = 183, (line = 183, scope.getVariable("prefix").getValue()).getElementByKey((line = 183, (line = 183, scope.getVariable("length").getValue()).subtract((line = 183, tools.valueFactory.createInteger(1))))).getValue()))).coerceToBoolean().getNative()) {line = 184;throw (line = 184, tools.createInstance(namespaceScope, (line = 184, tools.valueFactory.createBarewordString("\\InvalidArgumentException")), [(line = 184, tools.valueFactory.createString("A non-empty PSR-4 prefix must end with a namespace separator."))]));}line = 186;(line = 186, (line = 186, tools.implyArray(tools.implyArray((line = 186, tools.implyObject((line = 186, scope.getVariable("this"))).getInstancePropertyByName((line = 186, tools.valueFactory.createBarewordString("prefixLengthsPsr4"))))).getElementByKey((line = 186, (line = 186, scope.getVariable("prefix").getValue()).getElementByKey((line = 186, tools.valueFactory.createInteger(0))).getValue()))).getElementByKey((line = 186, scope.getVariable("prefix").getValue()))).setValue((line = 186, scope.getVariable("length").getValue())));line = 187;(line = 187, (line = 187, tools.implyArray((line = 187, tools.implyObject((line = 187, scope.getVariable("this"))).getInstancePropertyByName((line = 187, tools.valueFactory.createBarewordString("prefixDirsPsr4"))))).getElementByKey((line = 187, scope.getVariable("prefix").getValue()))).setValue((line = 187, (line = 187, scope.getVariable("paths").getValue()).coerceToArray())));} else {line = 188;if ((line = 188, scope.getVariable("prepend").getValue()).coerceToBoolean().getNative()) {line = 190;(line = 190, (line = 190, tools.implyArray((line = 190, tools.implyObject((line = 190, scope.getVariable("this"))).getInstancePropertyByName((line = 190, tools.valueFactory.createBarewordString("prefixDirsPsr4"))))).getElementByKey((line = 190, scope.getVariable("prefix").getValue()))).setValue((line = 190, ((line = 190, tools.valueFactory.createBarewordString("array_merge")).call([(line = 191, (line = 191, scope.getVariable("paths").getValue()).coerceToArray()), (line = 192, (line = 192, (line = 192, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 192, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue()).getElementByKey((line = 192, scope.getVariable("prefix").getValue())))], namespaceScope) || tools.valueFactory.createNull()))));} else {line = 196;(line = 196, (line = 196, tools.implyArray((line = 196, tools.implyObject((line = 196, scope.getVariable("this"))).getInstancePropertyByName((line = 196, tools.valueFactory.createBarewordString("prefixDirsPsr4"))))).getElementByKey((line = 196, scope.getVariable("prefix").getValue()))).setValue((line = 196, ((line = 196, tools.valueFactory.createBarewordString("array_merge")).call([(line = 197, (line = 197, (line = 197, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 197, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue()).getElementByKey((line = 197, scope.getVariable("prefix").getValue()))), (line = 198, (line = 198, scope.getVariable("paths").getValue()).coerceToArray())], namespaceScope) || tools.valueFactory.createNull()))));}}}}, args: [{"name":"prefix"},{"name":"paths"},{"name":"prepend","value":function () { return (line = 165, tools.valueFactory.createBoolean(false)); }}], line: 165}, "set": {isStatic: false, method: function _set($prefix, $paths) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("prefix").setValue($prefix.getValue());var $prefix = tools.createDebugVar(scope, "prefix");scope.getVariable("paths").setValue($paths.getValue());var $paths = tools.createDebugVar(scope, "paths");var $this = tools.createDebugVar(scope, "this");var $prefix = tools.createDebugVar(scope, "prefix");var $paths = tools.createDebugVar(scope, "paths");line = 212;if ((line = 212, (line = 212, scope.getVariable("prefix").getValue()).logicalNot()).coerceToBoolean().getNative()) {line = 213;(line = 213, (line = 213, tools.implyObject((line = 213, scope.getVariable("this"))).getInstancePropertyByName((line = 213, tools.valueFactory.createBarewordString("fallbackDirsPsr0")))).setValue((line = 213, (line = 213, scope.getVariable("paths").getValue()).coerceToArray())));} else {line = 215;(line = 215, (line = 215, tools.implyArray(tools.implyArray((line = 215, tools.implyObject((line = 215, scope.getVariable("this"))).getInstancePropertyByName((line = 215, tools.valueFactory.createBarewordString("prefixesPsr0"))))).getElementByKey((line = 215, (line = 215, scope.getVariable("prefix").getValue()).getElementByKey((line = 215, tools.valueFactory.createInteger(0))).getValue()))).getElementByKey((line = 215, scope.getVariable("prefix").getValue()))).setValue((line = 215, (line = 215, scope.getVariable("paths").getValue()).coerceToArray())));}}, args: [{"name":"prefix"},{"name":"paths"}], line: 210}, "setPsr4": {isStatic: false, method: function _setPsr4($prefix, $paths) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("prefix").setValue($prefix.getValue());var $prefix = tools.createDebugVar(scope, "prefix");scope.getVariable("paths").setValue($paths.getValue());var $paths = tools.createDebugVar(scope, "paths");var $this = tools.createDebugVar(scope, "this");var $prefix = tools.createDebugVar(scope, "prefix");var $paths = tools.createDebugVar(scope, "paths");var $length = tools.createDebugVar(scope, "length");line = 230;if ((line = 230, (line = 230, scope.getVariable("prefix").getValue()).logicalNot()).coerceToBoolean().getNative()) {line = 231;(line = 231, (line = 231, tools.implyObject((line = 231, scope.getVariable("this"))).getInstancePropertyByName((line = 231, tools.valueFactory.createBarewordString("fallbackDirsPsr4")))).setValue((line = 231, (line = 231, scope.getVariable("paths").getValue()).coerceToArray())));} else {line = 233;(line = 233, (line = 233, scope.getVariable("length")).setValue((line = 233, ((line = 233, tools.valueFactory.createBarewordString("strlen")).call([(line = 233, scope.getVariable("prefix"))], namespaceScope) || tools.valueFactory.createNull()))));line = 234;if ((line = 234, (line = 234, tools.valueFactory.createString("\\")).isNotIdenticalTo((line = 234, (line = 234, scope.getVariable("prefix").getValue()).getElementByKey((line = 234, (line = 234, scope.getVariable("length").getValue()).subtract((line = 234, tools.valueFactory.createInteger(1))))).getValue()))).coerceToBoolean().getNative()) {line = 235;throw (line = 235, tools.createInstance(namespaceScope, (line = 235, tools.valueFactory.createBarewordString("\\InvalidArgumentException")), [(line = 235, tools.valueFactory.createString("A non-empty PSR-4 prefix must end with a namespace separator."))]));}line = 237;(line = 237, (line = 237, tools.implyArray(tools.implyArray((line = 237, tools.implyObject((line = 237, scope.getVariable("this"))).getInstancePropertyByName((line = 237, tools.valueFactory.createBarewordString("prefixLengthsPsr4"))))).getElementByKey((line = 237, (line = 237, scope.getVariable("prefix").getValue()).getElementByKey((line = 237, tools.valueFactory.createInteger(0))).getValue()))).getElementByKey((line = 237, scope.getVariable("prefix").getValue()))).setValue((line = 237, scope.getVariable("length").getValue())));line = 238;(line = 238, (line = 238, tools.implyArray((line = 238, tools.implyObject((line = 238, scope.getVariable("this"))).getInstancePropertyByName((line = 238, tools.valueFactory.createBarewordString("prefixDirsPsr4"))))).getElementByKey((line = 238, scope.getVariable("prefix").getValue()))).setValue((line = 238, (line = 238, scope.getVariable("paths").getValue()).coerceToArray())));}}, args: [{"name":"prefix"},{"name":"paths"}], line: 228}, "setUseIncludePath": {isStatic: false, method: function _setUseIncludePath($useIncludePath) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("useIncludePath").setValue($useIncludePath.getValue());var $useIncludePath = tools.createDebugVar(scope, "useIncludePath");var $this = tools.createDebugVar(scope, "this");var $useIncludePath = tools.createDebugVar(scope, "useIncludePath");line = 249;(line = 249, (line = 249, tools.implyObject((line = 249, scope.getVariable("this"))).getInstancePropertyByName((line = 249, tools.valueFactory.createBarewordString("useIncludePath")))).setValue((line = 249, scope.getVariable("useIncludePath").getValue())));}, args: [{"name":"useIncludePath"}], line: 247}, "getUseIncludePath": {isStatic: false, method: function _getUseIncludePath() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 260;return (line = 260, (line = 260, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 260, tools.valueFactory.createBarewordString("useIncludePath"))).getValue());}, args: [], line: 258}, "setClassMapAuthoritative": {isStatic: false, method: function _setClassMapAuthoritative($classMapAuthoritative) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("classMapAuthoritative").setValue($classMapAuthoritative.getValue());var $classMapAuthoritative = tools.createDebugVar(scope, "classMapAuthoritative");var $this = tools.createDebugVar(scope, "this");var $classMapAuthoritative = tools.createDebugVar(scope, "classMapAuthoritative");line = 271;(line = 271, (line = 271, tools.implyObject((line = 271, scope.getVariable("this"))).getInstancePropertyByName((line = 271, tools.valueFactory.createBarewordString("classMapAuthoritative")))).setValue((line = 271, scope.getVariable("classMapAuthoritative").getValue())));}, args: [{"name":"classMapAuthoritative"}], line: 269}, "isClassMapAuthoritative": {isStatic: false, method: function _isClassMapAuthoritative() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 281;return (line = 281, (line = 281, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 281, tools.valueFactory.createBarewordString("classMapAuthoritative"))).getValue());}, args: [], line: 279}, "setApcuPrefix": {isStatic: false, method: function _setApcuPrefix($apcuPrefix) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("apcuPrefix").setValue($apcuPrefix.getValue());var $apcuPrefix = tools.createDebugVar(scope, "apcuPrefix");var $this = tools.createDebugVar(scope, "this");var $apcuPrefix = tools.createDebugVar(scope, "apcuPrefix");line = 291;(line = 291, (line = 291, tools.implyObject((line = 291, scope.getVariable("this"))).getInstancePropertyByName((line = 291, tools.valueFactory.createBarewordString("apcuPrefix")))).setValue((line = 291, ((line = 291, tools.valueFactory.createBoolean((line = 291, ((line = 291, tools.valueFactory.createBarewordString("function_exists")).call([(line = 291, tools.valueFactory.createString("apcu_fetch"))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative() && ((line = 291, ((line = 291, tools.valueFactory.createBarewordString("filter_var")).call([(line = 291, ((line = 291, tools.valueFactory.createBarewordString("ini_get")).call([(line = 291, tools.valueFactory.createString("apc.enabled"))], namespaceScope) || tools.valueFactory.createNull())), (line = 291, namespaceScope.getConstant("FILTER_VALIDATE_BOOLEAN"))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()))).coerceToBoolean().getNative() ? (line = 291, scope.getVariable("apcuPrefix").getValue()) : (line = 291, tools.valueFactory.createNull())))));}, args: [{"name":"apcuPrefix"}], line: 289}, "getApcuPrefix": {isStatic: false, method: function _getApcuPrefix() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 301;return (line = 301, (line = 301, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 301, tools.valueFactory.createBarewordString("apcuPrefix"))).getValue());}, args: [], line: 299}, "register": {isStatic: false, method: function _register($prepend) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("prepend").setValue($prepend.getValue());var $prepend = tools.createDebugVar(scope, "prepend");var $this = tools.createDebugVar(scope, "this");var $prepend = tools.createDebugVar(scope, "prepend");line = 311;(line = 311, ((line = 311, tools.valueFactory.createBarewordString("spl_autoload_register")).call([(line = 311, tools.valueFactory.createArray([(line = 311, scope.getVariable("this").getValue()), (line = 311, tools.valueFactory.createString("loadClass"))])), (line = 311, tools.valueFactory.createBoolean(true)), (line = 311, scope.getVariable("prepend"))], namespaceScope) || tools.valueFactory.createNull()));line = 313;if ((line = 313, (line = 313, tools.valueFactory.createNull()).isIdenticalTo((line = 313, (line = 313, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 313, tools.valueFactory.createBarewordString("vendorDir"))).getValue()))).coerceToBoolean().getNative()) {} else {line = 315;if ((line = 315, scope.getVariable("prepend").getValue()).coerceToBoolean().getNative()) {line = 316;(line = 316, (line = 316, (line = 316, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 316, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope)).setValue((line = 316, (line = 316, tools.valueFactory.createArray([(line = 316, tools.createKeyValuePair((line = 316, (line = 316, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 316, tools.valueFactory.createBarewordString("vendorDir"))).getValue()), (line = 316, scope.getVariable("this").getValue())))])).add((line = 316, (line = 316, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 316, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope).getValue())))));} else {line = 318;(line = 318, (line = 318, (line = 318, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 318, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope).getValue()).getElementByKey((line = 318, (line = 318, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 318, tools.valueFactory.createBarewordString("vendorDir"))).getValue()))).unset();line = 319;(line = 319, (line = 319, tools.implyArray((line = 319, (line = 319, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 319, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope))).getElementByKey((line = 319, (line = 319, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 319, tools.valueFactory.createBarewordString("vendorDir"))).getValue()))).setValue((line = 319, scope.getVariable("this").getValue())));}}}, args: [{"name":"prepend","value":function () { return (line = 309, tools.valueFactory.createBoolean(false)); }}], line: 309}, "unregister": {isStatic: false, method: function _unregister() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 328;(line = 328, ((line = 328, tools.valueFactory.createBarewordString("spl_autoload_unregister")).call([(line = 328, tools.valueFactory.createArray([(line = 328, scope.getVariable("this").getValue()), (line = 328, tools.valueFactory.createString("loadClass"))]))], namespaceScope) || tools.valueFactory.createNull()));line = 330;if ((line = 330, (line = 330, tools.valueFactory.createNull()).isNotIdenticalTo((line = 330, (line = 330, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 330, tools.valueFactory.createBarewordString("vendorDir"))).getValue()))).coerceToBoolean().getNative()) {line = 331;(line = 331, (line = 331, (line = 331, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 331, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope).getValue()).getElementByKey((line = 331, (line = 331, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 331, tools.valueFactory.createBarewordString("vendorDir"))).getValue()))).unset();}}, args: [], line: 326}, "loadClass": {isStatic: false, method: function _loadClass($class) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("class").setValue($class.getValue());var $class = tools.createDebugVar(scope, "class");var $this = tools.createDebugVar(scope, "this");var $file = tools.createDebugVar(scope, "file");var $class = tools.createDebugVar(scope, "class");line = 343;if ((line = 343, (line = 343, scope.getVariable("file")).setValue((line = 343, (line = 343, scope.getVariable("this").getValue()).callMethod((line = 343, tools.valueFactory.createBarewordString("findFile")).getNative(), [(line = 343, scope.getVariable("class"))])))).coerceToBoolean().getNative()) {line = 344;(line = 344, ((line = 344, tools.valueFactory.createBarewordString("includeFile")).call([(line = 344, scope.getVariable("file"))], namespaceScope) || tools.valueFactory.createNull()));line = 346;return (line = 346, tools.valueFactory.createBoolean(true));}}, args: [{"name":"class"}], line: 341}, "findFile": {isStatic: false, method: function _findFile($class) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("class").setValue($class.getValue());var $class = tools.createDebugVar(scope, "class");var $this = tools.createDebugVar(scope, "this");var $class = tools.createDebugVar(scope, "class");var $file = tools.createDebugVar(scope, "file");var $hit = tools.createDebugVar(scope, "hit");line = 360;if ((line = 360, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 360, (line = 360, (line = 360, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 360, tools.valueFactory.createBarewordString("classMap"))).getValue()).getElementByKey((line = 360, scope.getVariable("class").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 361;return (line = 361, (line = 361, (line = 361, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 361, tools.valueFactory.createBarewordString("classMap"))).getValue()).getElementByKey((line = 361, scope.getVariable("class").getValue())).getValue());}line = 363;if ((line = 363, tools.valueFactory.createBoolean((line = 363, (line = 363, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 363, tools.valueFactory.createBarewordString("classMapAuthoritative"))).getValue()).coerceToBoolean().getNative() || ((line = 363, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 363, (line = 363, (line = 363, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 363, tools.valueFactory.createBarewordString("missingClasses"))).getValue()).getElementByKey((line = 363, scope.getVariable("class").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()))).coerceToBoolean().getNative()) {line = 364;return (line = 364, tools.valueFactory.createBoolean(false));}line = 366;if ((line = 366, (line = 366, tools.valueFactory.createNull()).isNotIdenticalTo((line = 366, (line = 366, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 366, tools.valueFactory.createBarewordString("apcuPrefix"))).getValue()))).coerceToBoolean().getNative()) {line = 367;(line = 367, (line = 367, scope.getVariable("file")).setValue((line = 367, ((line = 367, tools.valueFactory.createBarewordString("apcu_fetch")).call([(line = 367, (line = 367, (line = 367, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 367, tools.valueFactory.createBarewordString("apcuPrefix"))).getValue()).concat((line = 367, scope.getVariable("class").getValue()))), (line = 367, scope.getVariable("hit"))], namespaceScope) || tools.valueFactory.createNull()))));line = 368;if ((line = 368, scope.getVariable("hit").getValue()).coerceToBoolean().getNative()) {line = 369;return (line = 369, scope.getVariable("file").getValue());}}line = 373;(line = 373, (line = 373, scope.getVariable("file")).setValue((line = 373, (line = 373, scope.getVariable("this").getValue()).callMethod((line = 373, tools.valueFactory.createBarewordString("findFileWithExtension")).getNative(), [(line = 373, scope.getVariable("class")), (line = 373, tools.valueFactory.createString(".php"))]))));line = 376;if ((line = 376, tools.valueFactory.createBoolean((line = 376, (line = 376, tools.valueFactory.createBoolean(false)).isIdenticalTo((line = 376, scope.getVariable("file").getValue()))).coerceToBoolean().getNative() && ((line = 376, ((line = 376, tools.valueFactory.createBarewordString("defined")).call([(line = 376, tools.valueFactory.createString("HHVM_VERSION"))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()))).coerceToBoolean().getNative()) {line = 377;(line = 377, (line = 377, scope.getVariable("file")).setValue((line = 377, (line = 377, scope.getVariable("this").getValue()).callMethod((line = 377, tools.valueFactory.createBarewordString("findFileWithExtension")).getNative(), [(line = 377, scope.getVariable("class")), (line = 377, tools.valueFactory.createString(".hh"))]))));}line = 380;if ((line = 380, (line = 380, tools.valueFactory.createNull()).isNotIdenticalTo((line = 380, (line = 380, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 380, tools.valueFactory.createBarewordString("apcuPrefix"))).getValue()))).coerceToBoolean().getNative()) {line = 381;(line = 381, ((line = 381, tools.valueFactory.createBarewordString("apcu_add")).call([(line = 381, (line = 381, (line = 381, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 381, tools.valueFactory.createBarewordString("apcuPrefix"))).getValue()).concat((line = 381, scope.getVariable("class").getValue()))), (line = 381, scope.getVariable("file"))], namespaceScope) || tools.valueFactory.createNull()));}line = 384;if ((line = 384, (line = 384, tools.valueFactory.createBoolean(false)).isIdenticalTo((line = 384, scope.getVariable("file").getValue()))).coerceToBoolean().getNative()) {line = 386;(line = 386, (line = 386, tools.implyArray((line = 386, tools.implyObject((line = 386, scope.getVariable("this"))).getInstancePropertyByName((line = 386, tools.valueFactory.createBarewordString("missingClasses"))))).getElementByKey((line = 386, scope.getVariable("class").getValue()))).setValue((line = 386, tools.valueFactory.createBoolean(true))));}line = 389;return (line = 389, scope.getVariable("file").getValue());}, args: [{"name":"class"}], line: 357}, "getRegisteredLoaders": {isStatic: true, method: function _getRegisteredLoaders() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 399;return (line = 399, (line = 399, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 399, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope).getValue());}, args: [], line: 397}, "findFileWithExtension": {isStatic: false, method: function _findFileWithExtension($class, $ext) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("class").setValue($class.getValue());var $class = tools.createDebugVar(scope, "class");scope.getVariable("ext").setValue($ext.getValue());var $ext = tools.createDebugVar(scope, "ext");var $this = tools.createDebugVar(scope, "this");var $logicalPathPsr4 = tools.createDebugVar(scope, "logicalPathPsr4");var $class = tools.createDebugVar(scope, "class");var $ext = tools.createDebugVar(scope, "ext");var $first = tools.createDebugVar(scope, "first");var $subPath = tools.createDebugVar(scope, "subPath");var $lastPos = tools.createDebugVar(scope, "lastPos");var $search = tools.createDebugVar(scope, "search");var $pathEnd = tools.createDebugVar(scope, "pathEnd");var $dir = tools.createDebugVar(scope, "dir");var $file = tools.createDebugVar(scope, "file");var $pos = tools.createDebugVar(scope, "pos");var $logicalPathPsr0 = tools.createDebugVar(scope, "logicalPathPsr0");var $prefix = tools.createDebugVar(scope, "prefix");var $dirs = tools.createDebugVar(scope, "dirs");line = 405;(line = 405, (line = 405, scope.getVariable("logicalPathPsr4")).setValue((line = 405, (line = 405, ((line = 405, tools.valueFactory.createBarewordString("strtr")).call([(line = 405, scope.getVariable("class")), (line = 405, tools.valueFactory.createString("\\")), (line = 405, namespaceScope.getConstant("DIRECTORY_SEPARATOR"))], namespaceScope) || tools.valueFactory.createNull())).concat((line = 405, scope.getVariable("ext").getValue())))));line = 407;(line = 407, (line = 407, scope.getVariable("first")).setValue((line = 407, (line = 407, scope.getVariable("class").getValue()).getElementByKey((line = 407, tools.valueFactory.createInteger(0))).getValue())));line = 408;if ((line = 408, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 408, (line = 408, (line = 408, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 408, tools.valueFactory.createBarewordString("prefixLengthsPsr4"))).getValue()).getElementByKey((line = 408, scope.getVariable("first").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 409;(line = 409, (line = 409, scope.getVariable("subPath")).setValue((line = 409, scope.getVariable("class").getValue())));line = 410;block_1: while ((line = 410, (line = 410, tools.valueFactory.createBoolean(false)).isNotIdenticalTo((line = 410, (line = 410, scope.getVariable("lastPos")).setValue((line = 410, ((line = 410, tools.valueFactory.createBarewordString("strrpos")).call([(line = 410, scope.getVariable("subPath")), (line = 410, tools.valueFactory.createString("\\"))], namespaceScope) || tools.valueFactory.createNull())))))).coerceToBoolean().getNative()) {line = 411;(line = 411, (line = 411, scope.getVariable("subPath")).setValue((line = 411, ((line = 411, tools.valueFactory.createBarewordString("substr")).call([(line = 411, scope.getVariable("subPath")), (line = 411, tools.valueFactory.createInteger(0)), (line = 411, scope.getVariable("lastPos"))], namespaceScope) || tools.valueFactory.createNull()))));line = 412;(line = 412, (line = 412, scope.getVariable("search")).setValue((line = 412, (line = 412, scope.getVariable("subPath").getValue()).concat((line = 412, tools.valueFactory.createString("\\"))))));line = 413;if ((line = 413, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 413, (line = 413, (line = 413, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 413, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue()).getElementByKey((line = 413, scope.getVariable("search").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 414;(line = 414, (line = 414, scope.getVariable("pathEnd")).setValue((line = 414, (line = 414, namespaceScope.getConstant("DIRECTORY_SEPARATOR")).concat((line = 414, ((line = 414, tools.valueFactory.createBarewordString("substr")).call([(line = 414, scope.getVariable("logicalPathPsr4")), (line = 414, (line = 414, scope.getVariable("lastPos").getValue()).add((line = 414, tools.valueFactory.createInteger(1))))], namespaceScope) || tools.valueFactory.createNull()))))));line = 415;block_2: for (var iterator_2 = (line = 415, (line = 415, (line = 415, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 415, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue()).getElementByKey((line = 415, scope.getVariable("search").getValue())).getValue()).getIterator(); iterator_2.isNotFinished(); iterator_2.advance()) {(line = 415, scope.getVariable("dir")).setValue(iterator_2.getCurrentElementValue());line = 416;if ((line = 416, ((line = 416, tools.valueFactory.createBarewordString("file_exists")).call([(line = 416, (line = 416, scope.getVariable("file")).setValue((line = 416, (line = 416, scope.getVariable("dir").getValue()).concat((line = 416, scope.getVariable("pathEnd").getValue())))))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 417;return (line = 417, scope.getVariable("file").getValue());}}}}}line = 425;block_1: for (var iterator_1 = (line = 425, (line = 425, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 425, tools.valueFactory.createBarewordString("fallbackDirsPsr4"))).getValue()).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 425, scope.getVariable("dir")).setValue(iterator_1.getCurrentElementValue());line = 426;if ((line = 426, ((line = 426, tools.valueFactory.createBarewordString("file_exists")).call([(line = 426, (line = 426, scope.getVariable("file")).setValue((line = 426, (line = 426, (line = 426, scope.getVariable("dir").getValue()).concat((line = 426, namespaceScope.getConstant("DIRECTORY_SEPARATOR")))).concat((line = 426, scope.getVariable("logicalPathPsr4").getValue())))))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 427;return (line = 427, scope.getVariable("file").getValue());}}line = 432;if ((line = 432, (line = 432, tools.valueFactory.createBoolean(false)).isNotIdenticalTo((line = 432, (line = 432, scope.getVariable("pos")).setValue((line = 432, ((line = 432, tools.valueFactory.createBarewordString("strrpos")).call([(line = 432, scope.getVariable("class")), (line = 432, tools.valueFactory.createString("\\"))], namespaceScope) || tools.valueFactory.createNull())))))).coerceToBoolean().getNative()) {line = 434;(line = 434, (line = 434, scope.getVariable("logicalPathPsr0")).setValue((line = 434, (line = 434, ((line = 434, tools.valueFactory.createBarewordString("substr")).call([(line = 434, scope.getVariable("logicalPathPsr4")), (line = 434, tools.valueFactory.createInteger(0)), (line = 434, (line = 434, scope.getVariable("pos").getValue()).add((line = 434, tools.valueFactory.createInteger(1))))], namespaceScope) || tools.valueFactory.createNull())).concat((line = 435, ((line = 435, tools.valueFactory.createBarewordString("strtr")).call([(line = 435, ((line = 435, tools.valueFactory.createBarewordString("substr")).call([(line = 435, scope.getVariable("logicalPathPsr4")), (line = 435, (line = 435, scope.getVariable("pos").getValue()).add((line = 435, tools.valueFactory.createInteger(1))))], namespaceScope) || tools.valueFactory.createNull())), (line = 435, tools.valueFactory.createString("_")), (line = 435, namespaceScope.getConstant("DIRECTORY_SEPARATOR"))], namespaceScope) || tools.valueFactory.createNull()))))));} else {line = 438;(line = 438, (line = 438, scope.getVariable("logicalPathPsr0")).setValue((line = 438, (line = 438, ((line = 438, tools.valueFactory.createBarewordString("strtr")).call([(line = 438, scope.getVariable("class")), (line = 438, tools.valueFactory.createString("_")), (line = 438, namespaceScope.getConstant("DIRECTORY_SEPARATOR"))], namespaceScope) || tools.valueFactory.createNull())).concat((line = 438, scope.getVariable("ext").getValue())))));}line = 441;if ((line = 441, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 441, (line = 441, (line = 441, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 441, tools.valueFactory.createBarewordString("prefixesPsr0"))).getValue()).getElementByKey((line = 441, scope.getVariable("first").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 442;block_1: for (var iterator_1 = (line = 442, (line = 442, (line = 442, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 442, tools.valueFactory.createBarewordString("prefixesPsr0"))).getValue()).getElementByKey((line = 442, scope.getVariable("first").getValue())).getValue()).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 442, scope.getVariable("dirs")).setValue(iterator_1.getCurrentElementValue());(line = 442, scope.getVariable("prefix")).setValue(iterator_1.getCurrentKey());line = 443;if ((line = 443, (line = 443, tools.valueFactory.createInteger(0)).isIdenticalTo((line = 443, ((line = 443, tools.valueFactory.createBarewordString("strpos")).call([(line = 443, scope.getVariable("class")), (line = 443, scope.getVariable("prefix"))], namespaceScope) || tools.valueFactory.createNull())))).coerceToBoolean().getNative()) {line = 444;block_2: for (var iterator_2 = (line = 444, scope.getVariable("dirs").getValue()).getIterator(); iterator_2.isNotFinished(); iterator_2.advance()) {(line = 444, scope.getVariable("dir")).setValue(iterator_2.getCurrentElementValue());line = 445;if ((line = 445, ((line = 445, tools.valueFactory.createBarewordString("file_exists")).call([(line = 445, (line = 445, scope.getVariable("file")).setValue((line = 445, (line = 445, (line = 445, scope.getVariable("dir").getValue()).concat((line = 445, namespaceScope.getConstant("DIRECTORY_SEPARATOR")))).concat((line = 445, scope.getVariable("logicalPathPsr0").getValue())))))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 446;return (line = 446, scope.getVariable("file").getValue());}}}}}line = 454;block_1: for (var iterator_1 = (line = 454, (line = 454, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 454, tools.valueFactory.createBarewordString("fallbackDirsPsr0"))).getValue()).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 454, scope.getVariable("dir")).setValue(iterator_1.getCurrentElementValue());line = 455;if ((line = 455, ((line = 455, tools.valueFactory.createBarewordString("file_exists")).call([(line = 455, (line = 455, scope.getVariable("file")).setValue((line = 455, (line = 455, (line = 455, scope.getVariable("dir").getValue()).concat((line = 455, namespaceScope.getConstant("DIRECTORY_SEPARATOR")))).concat((line = 455, scope.getVariable("logicalPathPsr0").getValue())))))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 456;return (line = 456, scope.getVariable("file").getValue());}}line = 461;if ((line = 461, tools.valueFactory.createBoolean((line = 461, (line = 461, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 461, tools.valueFactory.createBarewordString("useIncludePath"))).getValue()).coerceToBoolean().getNative() && ((line = 461, (line = 461, scope.getVariable("file")).setValue((line = 461, ((line = 461, tools.valueFactory.createBarewordString("stream_resolve_include_path")).call([(line = 461, scope.getVariable("logicalPathPsr0"))], namespaceScope) || tools.valueFactory.createNull())))).coerceToBoolean().getNative()))).coerceToBoolean().getNative()) {line = 462;return (line = 462, scope.getVariable("file").getValue());}line = 465;return (line = 465, tools.valueFactory.createBoolean(false));}, args: [{"name":"class"},{"name":"ext"}], line: 402}}, constants: {}}, namespaceScope);}());line = 474;namespace.defineFunction("includeFile", function _includeFile($file) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("file").setValue($file.getValue());var $file = tools.createDebugVar(scope, "file");var $this = tools.createDebugVar(scope, "this");var $file = tools.createDebugVar(scope, "file");line = 476;(line = 476, tools.include((line = 476, scope.getVariable("file").getValue()).getNative(), scope));}, namespaceScope, [{"name":"file"}], 474);}(namespace))) { return namespaceResult; }return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */(function(module) {__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
+__webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/ClassLoader.php", module, __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 13;if (namespaceResult = (function (globalNamespace) {var namespace = globalNamespace.getDescendant("Composer\\Autoload"), namespaceScope = tools.createNamespaceScope(namespace);line = 43;(function () {var currentClass = namespace.defineClass("ClassLoader", {superClass: null, interfaces: [], staticProperties: {"registeredLoaders": {visibility: "private", value: function (currentClass) { return (line = 62, tools.valueFactory.createArray([])); }}}, properties: {"vendorDir": {visibility: "private", value: function () { return null; }}, "prefixLengthsPsr4": {visibility: "private", value: function () { return (line = 48, tools.valueFactory.createArray([])); }}, "prefixDirsPsr4": {visibility: "private", value: function () { return (line = 49, tools.valueFactory.createArray([])); }}, "fallbackDirsPsr4": {visibility: "private", value: function () { return (line = 50, tools.valueFactory.createArray([])); }}, "prefixesPsr0": {visibility: "private", value: function () { return (line = 53, tools.valueFactory.createArray([])); }}, "fallbackDirsPsr0": {visibility: "private", value: function () { return (line = 54, tools.valueFactory.createArray([])); }}, "useIncludePath": {visibility: "private", value: function () { return (line = 56, tools.valueFactory.createBoolean(false)); }}, "classMap": {visibility: "private", value: function () { return (line = 57, tools.valueFactory.createArray([])); }}, "classMapAuthoritative": {visibility: "private", value: function () { return (line = 58, tools.valueFactory.createBoolean(false)); }}, "missingClasses": {visibility: "private", value: function () { return (line = 59, tools.valueFactory.createArray([])); }}, "apcuPrefix": {visibility: "private", value: function () { return null; }}}, methods: {"__construct": {isStatic: false, method: function ___construct($vendorDir) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("vendorDir").setValue($vendorDir.getValue());var $vendorDir = tools.createDebugVar(scope, "vendorDir");var $this = tools.createDebugVar(scope, "this");var $vendorDir = tools.createDebugVar(scope, "vendorDir");line = 66;(line = 66, (line = 66, tools.implyObject((line = 66, scope.getVariable("this"))).getInstancePropertyByName((line = 66, tools.valueFactory.createBarewordString("vendorDir")))).setValue((line = 66, scope.getVariable("vendorDir").getValue())));}, args: [{"name":"vendorDir","value":function () { return (line = 64, tools.valueFactory.createNull()); }}], line: 64}, "getPrefixes": {isStatic: false, method: function _getPrefixes() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 71;if ((line = 71, (line = 71, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 71, (line = 71, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 71, tools.valueFactory.createBarewordString("prefixesPsr0")))).isEmpty());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 72;return (line = 72, ((line = 72, tools.valueFactory.createBarewordString("call_user_func_array")).call([(line = 72, tools.valueFactory.createString("array_merge")), (line = 72, ((line = 72, tools.valueFactory.createBarewordString("array_values")).call([(line = 72, (line = 72, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 72, tools.valueFactory.createBarewordString("prefixesPsr0"))))], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()));}line = 75;return (line = 75, tools.valueFactory.createArray([]));}, args: [], line: 69}, "getPrefixesPsr4": {isStatic: false, method: function _getPrefixesPsr4() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 80;return (line = 80, (line = 80, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 80, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue());}, args: [], line: 78}, "getFallbackDirs": {isStatic: false, method: function _getFallbackDirs() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 85;return (line = 85, (line = 85, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 85, tools.valueFactory.createBarewordString("fallbackDirsPsr0"))).getValue());}, args: [], line: 83}, "getFallbackDirsPsr4": {isStatic: false, method: function _getFallbackDirsPsr4() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 90;return (line = 90, (line = 90, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 90, tools.valueFactory.createBarewordString("fallbackDirsPsr4"))).getValue());}, args: [], line: 88}, "getClassMap": {isStatic: false, method: function _getClassMap() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 95;return (line = 95, (line = 95, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 95, tools.valueFactory.createBarewordString("classMap"))).getValue());}, args: [], line: 93}, "addClassMap": {isStatic: false, method: function _addClassMap($classMap) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("classMap").setValue($classMap.getValue());var $classMap = tools.createDebugVar(scope, "classMap");var $this = tools.createDebugVar(scope, "this");var $classMap = tools.createDebugVar(scope, "classMap");line = 103;if ((line = 103, (line = 103, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 103, tools.valueFactory.createBarewordString("classMap"))).getValue()).coerceToBoolean().getNative()) {line = 104;(line = 104, (line = 104, tools.implyObject((line = 104, scope.getVariable("this"))).getInstancePropertyByName((line = 104, tools.valueFactory.createBarewordString("classMap")))).setValue((line = 104, ((line = 104, tools.valueFactory.createBarewordString("array_merge")).call([(line = 104, (line = 104, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 104, tools.valueFactory.createBarewordString("classMap")))), (line = 104, scope.getVariable("classMap"))], namespaceScope) || tools.valueFactory.createNull()))));} else {line = 106;(line = 106, (line = 106, tools.implyObject((line = 106, scope.getVariable("this"))).getInstancePropertyByName((line = 106, tools.valueFactory.createBarewordString("classMap")))).setValue((line = 106, scope.getVariable("classMap").getValue())));}}, args: [{"type":"array","name":"classMap"}], line: 101}, "add": {isStatic: false, method: function _add($prefix, $paths, $prepend) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("prefix").setValue($prefix.getValue());var $prefix = tools.createDebugVar(scope, "prefix");scope.getVariable("paths").setValue($paths.getValue());var $paths = tools.createDebugVar(scope, "paths");scope.getVariable("prepend").setValue($prepend.getValue());var $prepend = tools.createDebugVar(scope, "prepend");var $this = tools.createDebugVar(scope, "this");var $prefix = tools.createDebugVar(scope, "prefix");var $prepend = tools.createDebugVar(scope, "prepend");var $paths = tools.createDebugVar(scope, "paths");var $first = tools.createDebugVar(scope, "first");line = 120;if ((line = 120, (line = 120, scope.getVariable("prefix").getValue()).logicalNot()).coerceToBoolean().getNative()) {line = 121;if ((line = 121, scope.getVariable("prepend").getValue()).coerceToBoolean().getNative()) {line = 122;(line = 122, (line = 122, tools.implyObject((line = 122, scope.getVariable("this"))).getInstancePropertyByName((line = 122, tools.valueFactory.createBarewordString("fallbackDirsPsr0")))).setValue((line = 122, ((line = 122, tools.valueFactory.createBarewordString("array_merge")).call([(line = 123, (line = 123, scope.getVariable("paths").getValue()).coerceToArray()), (line = 124, (line = 124, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 124, tools.valueFactory.createBarewordString("fallbackDirsPsr0"))))], namespaceScope) || tools.valueFactory.createNull()))));} else {line = 127;(line = 127, (line = 127, tools.implyObject((line = 127, scope.getVariable("this"))).getInstancePropertyByName((line = 127, tools.valueFactory.createBarewordString("fallbackDirsPsr0")))).setValue((line = 127, ((line = 127, tools.valueFactory.createBarewordString("array_merge")).call([(line = 128, (line = 128, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 128, tools.valueFactory.createBarewordString("fallbackDirsPsr0")))), (line = 129, (line = 129, scope.getVariable("paths").getValue()).coerceToArray())], namespaceScope) || tools.valueFactory.createNull()))));}line = 133;return tools.valueFactory.createNull();}line = 136;(line = 136, (line = 136, scope.getVariable("first")).setValue((line = 136, (line = 136, scope.getVariable("prefix").getValue()).getElementByKey((line = 136, tools.valueFactory.createInteger(0))).getValue())));line = 137;if ((line = 137, (line = 137, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 137, (line = 137, (line = 137, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 137, tools.valueFactory.createBarewordString("prefixesPsr0"))).getValue()).getElementByKey((line = 137, scope.getVariable("first").getValue())).getValue().getElementByKey((line = 137, scope.getVariable("prefix").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 138;(line = 138, (line = 138, tools.implyArray(tools.implyArray((line = 138, tools.implyObject((line = 138, scope.getVariable("this"))).getInstancePropertyByName((line = 138, tools.valueFactory.createBarewordString("prefixesPsr0"))))).getElementByKey((line = 138, scope.getVariable("first").getValue()))).getElementByKey((line = 138, scope.getVariable("prefix").getValue()))).setValue((line = 138, (line = 138, scope.getVariable("paths").getValue()).coerceToArray())));line = 140;return tools.valueFactory.createNull();}line = 142;if ((line = 142, scope.getVariable("prepend").getValue()).coerceToBoolean().getNative()) {line = 143;(line = 143, (line = 143, tools.implyArray(tools.implyArray((line = 143, tools.implyObject((line = 143, scope.getVariable("this"))).getInstancePropertyByName((line = 143, tools.valueFactory.createBarewordString("prefixesPsr0"))))).getElementByKey((line = 143, scope.getVariable("first").getValue()))).getElementByKey((line = 143, scope.getVariable("prefix").getValue()))).setValue((line = 143, ((line = 143, tools.valueFactory.createBarewordString("array_merge")).call([(line = 144, (line = 144, scope.getVariable("paths").getValue()).coerceToArray()), (line = 145, (line = 145, (line = 145, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 145, tools.valueFactory.createBarewordString("prefixesPsr0"))).getValue()).getElementByKey((line = 145, scope.getVariable("first").getValue())).getValue().getElementByKey((line = 145, scope.getVariable("prefix").getValue())))], namespaceScope) || tools.valueFactory.createNull()))));} else {line = 148;(line = 148, (line = 148, tools.implyArray(tools.implyArray((line = 148, tools.implyObject((line = 148, scope.getVariable("this"))).getInstancePropertyByName((line = 148, tools.valueFactory.createBarewordString("prefixesPsr0"))))).getElementByKey((line = 148, scope.getVariable("first").getValue()))).getElementByKey((line = 148, scope.getVariable("prefix").getValue()))).setValue((line = 148, ((line = 148, tools.valueFactory.createBarewordString("array_merge")).call([(line = 149, (line = 149, (line = 149, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 149, tools.valueFactory.createBarewordString("prefixesPsr0"))).getValue()).getElementByKey((line = 149, scope.getVariable("first").getValue())).getValue().getElementByKey((line = 149, scope.getVariable("prefix").getValue()))), (line = 150, (line = 150, scope.getVariable("paths").getValue()).coerceToArray())], namespaceScope) || tools.valueFactory.createNull()))));}}, args: [{"name":"prefix"},{"name":"paths"},{"name":"prepend","value":function () { return (line = 118, tools.valueFactory.createBoolean(false)); }}], line: 118}, "addPsr4": {isStatic: false, method: function _addPsr4($prefix, $paths, $prepend) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("prefix").setValue($prefix.getValue());var $prefix = tools.createDebugVar(scope, "prefix");scope.getVariable("paths").setValue($paths.getValue());var $paths = tools.createDebugVar(scope, "paths");scope.getVariable("prepend").setValue($prepend.getValue());var $prepend = tools.createDebugVar(scope, "prepend");var $this = tools.createDebugVar(scope, "this");var $prefix = tools.createDebugVar(scope, "prefix");var $prepend = tools.createDebugVar(scope, "prepend");var $paths = tools.createDebugVar(scope, "paths");var $length = tools.createDebugVar(scope, "length");line = 167;if ((line = 167, (line = 167, scope.getVariable("prefix").getValue()).logicalNot()).coerceToBoolean().getNative()) {line = 169;if ((line = 169, scope.getVariable("prepend").getValue()).coerceToBoolean().getNative()) {line = 170;(line = 170, (line = 170, tools.implyObject((line = 170, scope.getVariable("this"))).getInstancePropertyByName((line = 170, tools.valueFactory.createBarewordString("fallbackDirsPsr4")))).setValue((line = 170, ((line = 170, tools.valueFactory.createBarewordString("array_merge")).call([(line = 171, (line = 171, scope.getVariable("paths").getValue()).coerceToArray()), (line = 172, (line = 172, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 172, tools.valueFactory.createBarewordString("fallbackDirsPsr4"))))], namespaceScope) || tools.valueFactory.createNull()))));} else {line = 175;(line = 175, (line = 175, tools.implyObject((line = 175, scope.getVariable("this"))).getInstancePropertyByName((line = 175, tools.valueFactory.createBarewordString("fallbackDirsPsr4")))).setValue((line = 175, ((line = 175, tools.valueFactory.createBarewordString("array_merge")).call([(line = 176, (line = 176, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 176, tools.valueFactory.createBarewordString("fallbackDirsPsr4")))), (line = 177, (line = 177, scope.getVariable("paths").getValue()).coerceToArray())], namespaceScope) || tools.valueFactory.createNull()))));}} else {line = 180;if ((line = 180, (line = 180, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 180, (line = 180, (line = 180, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 180, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue()).getElementByKey((line = 180, scope.getVariable("prefix").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 182;(line = 182, (line = 182, scope.getVariable("length")).setValue((line = 182, ((line = 182, tools.valueFactory.createBarewordString("strlen")).call([(line = 182, scope.getVariable("prefix"))], namespaceScope) || tools.valueFactory.createNull()))));line = 183;if ((line = 183, (line = 183, tools.valueFactory.createString("\\")).isNotIdenticalTo((line = 183, (line = 183, scope.getVariable("prefix").getValue()).getElementByKey((line = 183, (line = 183, scope.getVariable("length").getValue()).subtract((line = 183, tools.valueFactory.createInteger(1))))).getValue()))).coerceToBoolean().getNative()) {line = 184;throw (line = 184, tools.createInstance(namespaceScope, (line = 184, tools.valueFactory.createBarewordString("\\InvalidArgumentException")), [(line = 184, tools.valueFactory.createString("A non-empty PSR-4 prefix must end with a namespace separator."))]));}line = 186;(line = 186, (line = 186, tools.implyArray(tools.implyArray((line = 186, tools.implyObject((line = 186, scope.getVariable("this"))).getInstancePropertyByName((line = 186, tools.valueFactory.createBarewordString("prefixLengthsPsr4"))))).getElementByKey((line = 186, (line = 186, scope.getVariable("prefix").getValue()).getElementByKey((line = 186, tools.valueFactory.createInteger(0))).getValue()))).getElementByKey((line = 186, scope.getVariable("prefix").getValue()))).setValue((line = 186, scope.getVariable("length").getValue())));line = 187;(line = 187, (line = 187, tools.implyArray((line = 187, tools.implyObject((line = 187, scope.getVariable("this"))).getInstancePropertyByName((line = 187, tools.valueFactory.createBarewordString("prefixDirsPsr4"))))).getElementByKey((line = 187, scope.getVariable("prefix").getValue()))).setValue((line = 187, (line = 187, scope.getVariable("paths").getValue()).coerceToArray())));} else {line = 188;if ((line = 188, scope.getVariable("prepend").getValue()).coerceToBoolean().getNative()) {line = 190;(line = 190, (line = 190, tools.implyArray((line = 190, tools.implyObject((line = 190, scope.getVariable("this"))).getInstancePropertyByName((line = 190, tools.valueFactory.createBarewordString("prefixDirsPsr4"))))).getElementByKey((line = 190, scope.getVariable("prefix").getValue()))).setValue((line = 190, ((line = 190, tools.valueFactory.createBarewordString("array_merge")).call([(line = 191, (line = 191, scope.getVariable("paths").getValue()).coerceToArray()), (line = 192, (line = 192, (line = 192, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 192, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue()).getElementByKey((line = 192, scope.getVariable("prefix").getValue())))], namespaceScope) || tools.valueFactory.createNull()))));} else {line = 196;(line = 196, (line = 196, tools.implyArray((line = 196, tools.implyObject((line = 196, scope.getVariable("this"))).getInstancePropertyByName((line = 196, tools.valueFactory.createBarewordString("prefixDirsPsr4"))))).getElementByKey((line = 196, scope.getVariable("prefix").getValue()))).setValue((line = 196, ((line = 196, tools.valueFactory.createBarewordString("array_merge")).call([(line = 197, (line = 197, (line = 197, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 197, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue()).getElementByKey((line = 197, scope.getVariable("prefix").getValue()))), (line = 198, (line = 198, scope.getVariable("paths").getValue()).coerceToArray())], namespaceScope) || tools.valueFactory.createNull()))));}}}}, args: [{"name":"prefix"},{"name":"paths"},{"name":"prepend","value":function () { return (line = 165, tools.valueFactory.createBoolean(false)); }}], line: 165}, "set": {isStatic: false, method: function _set($prefix, $paths) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("prefix").setValue($prefix.getValue());var $prefix = tools.createDebugVar(scope, "prefix");scope.getVariable("paths").setValue($paths.getValue());var $paths = tools.createDebugVar(scope, "paths");var $this = tools.createDebugVar(scope, "this");var $prefix = tools.createDebugVar(scope, "prefix");var $paths = tools.createDebugVar(scope, "paths");line = 212;if ((line = 212, (line = 212, scope.getVariable("prefix").getValue()).logicalNot()).coerceToBoolean().getNative()) {line = 213;(line = 213, (line = 213, tools.implyObject((line = 213, scope.getVariable("this"))).getInstancePropertyByName((line = 213, tools.valueFactory.createBarewordString("fallbackDirsPsr0")))).setValue((line = 213, (line = 213, scope.getVariable("paths").getValue()).coerceToArray())));} else {line = 215;(line = 215, (line = 215, tools.implyArray(tools.implyArray((line = 215, tools.implyObject((line = 215, scope.getVariable("this"))).getInstancePropertyByName((line = 215, tools.valueFactory.createBarewordString("prefixesPsr0"))))).getElementByKey((line = 215, (line = 215, scope.getVariable("prefix").getValue()).getElementByKey((line = 215, tools.valueFactory.createInteger(0))).getValue()))).getElementByKey((line = 215, scope.getVariable("prefix").getValue()))).setValue((line = 215, (line = 215, scope.getVariable("paths").getValue()).coerceToArray())));}}, args: [{"name":"prefix"},{"name":"paths"}], line: 210}, "setPsr4": {isStatic: false, method: function _setPsr4($prefix, $paths) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("prefix").setValue($prefix.getValue());var $prefix = tools.createDebugVar(scope, "prefix");scope.getVariable("paths").setValue($paths.getValue());var $paths = tools.createDebugVar(scope, "paths");var $this = tools.createDebugVar(scope, "this");var $prefix = tools.createDebugVar(scope, "prefix");var $paths = tools.createDebugVar(scope, "paths");var $length = tools.createDebugVar(scope, "length");line = 230;if ((line = 230, (line = 230, scope.getVariable("prefix").getValue()).logicalNot()).coerceToBoolean().getNative()) {line = 231;(line = 231, (line = 231, tools.implyObject((line = 231, scope.getVariable("this"))).getInstancePropertyByName((line = 231, tools.valueFactory.createBarewordString("fallbackDirsPsr4")))).setValue((line = 231, (line = 231, scope.getVariable("paths").getValue()).coerceToArray())));} else {line = 233;(line = 233, (line = 233, scope.getVariable("length")).setValue((line = 233, ((line = 233, tools.valueFactory.createBarewordString("strlen")).call([(line = 233, scope.getVariable("prefix"))], namespaceScope) || tools.valueFactory.createNull()))));line = 234;if ((line = 234, (line = 234, tools.valueFactory.createString("\\")).isNotIdenticalTo((line = 234, (line = 234, scope.getVariable("prefix").getValue()).getElementByKey((line = 234, (line = 234, scope.getVariable("length").getValue()).subtract((line = 234, tools.valueFactory.createInteger(1))))).getValue()))).coerceToBoolean().getNative()) {line = 235;throw (line = 235, tools.createInstance(namespaceScope, (line = 235, tools.valueFactory.createBarewordString("\\InvalidArgumentException")), [(line = 235, tools.valueFactory.createString("A non-empty PSR-4 prefix must end with a namespace separator."))]));}line = 237;(line = 237, (line = 237, tools.implyArray(tools.implyArray((line = 237, tools.implyObject((line = 237, scope.getVariable("this"))).getInstancePropertyByName((line = 237, tools.valueFactory.createBarewordString("prefixLengthsPsr4"))))).getElementByKey((line = 237, (line = 237, scope.getVariable("prefix").getValue()).getElementByKey((line = 237, tools.valueFactory.createInteger(0))).getValue()))).getElementByKey((line = 237, scope.getVariable("prefix").getValue()))).setValue((line = 237, scope.getVariable("length").getValue())));line = 238;(line = 238, (line = 238, tools.implyArray((line = 238, tools.implyObject((line = 238, scope.getVariable("this"))).getInstancePropertyByName((line = 238, tools.valueFactory.createBarewordString("prefixDirsPsr4"))))).getElementByKey((line = 238, scope.getVariable("prefix").getValue()))).setValue((line = 238, (line = 238, scope.getVariable("paths").getValue()).coerceToArray())));}}, args: [{"name":"prefix"},{"name":"paths"}], line: 228}, "setUseIncludePath": {isStatic: false, method: function _setUseIncludePath($useIncludePath) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("useIncludePath").setValue($useIncludePath.getValue());var $useIncludePath = tools.createDebugVar(scope, "useIncludePath");var $this = tools.createDebugVar(scope, "this");var $useIncludePath = tools.createDebugVar(scope, "useIncludePath");line = 249;(line = 249, (line = 249, tools.implyObject((line = 249, scope.getVariable("this"))).getInstancePropertyByName((line = 249, tools.valueFactory.createBarewordString("useIncludePath")))).setValue((line = 249, scope.getVariable("useIncludePath").getValue())));}, args: [{"name":"useIncludePath"}], line: 247}, "getUseIncludePath": {isStatic: false, method: function _getUseIncludePath() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 260;return (line = 260, (line = 260, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 260, tools.valueFactory.createBarewordString("useIncludePath"))).getValue());}, args: [], line: 258}, "setClassMapAuthoritative": {isStatic: false, method: function _setClassMapAuthoritative($classMapAuthoritative) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("classMapAuthoritative").setValue($classMapAuthoritative.getValue());var $classMapAuthoritative = tools.createDebugVar(scope, "classMapAuthoritative");var $this = tools.createDebugVar(scope, "this");var $classMapAuthoritative = tools.createDebugVar(scope, "classMapAuthoritative");line = 271;(line = 271, (line = 271, tools.implyObject((line = 271, scope.getVariable("this"))).getInstancePropertyByName((line = 271, tools.valueFactory.createBarewordString("classMapAuthoritative")))).setValue((line = 271, scope.getVariable("classMapAuthoritative").getValue())));}, args: [{"name":"classMapAuthoritative"}], line: 269}, "isClassMapAuthoritative": {isStatic: false, method: function _isClassMapAuthoritative() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 281;return (line = 281, (line = 281, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 281, tools.valueFactory.createBarewordString("classMapAuthoritative"))).getValue());}, args: [], line: 279}, "setApcuPrefix": {isStatic: false, method: function _setApcuPrefix($apcuPrefix) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("apcuPrefix").setValue($apcuPrefix.getValue());var $apcuPrefix = tools.createDebugVar(scope, "apcuPrefix");var $this = tools.createDebugVar(scope, "this");var $apcuPrefix = tools.createDebugVar(scope, "apcuPrefix");line = 291;(line = 291, (line = 291, tools.implyObject((line = 291, scope.getVariable("this"))).getInstancePropertyByName((line = 291, tools.valueFactory.createBarewordString("apcuPrefix")))).setValue((line = 291, ((line = 291, tools.valueFactory.createBoolean((line = 291, ((line = 291, tools.valueFactory.createBarewordString("function_exists")).call([(line = 291, tools.valueFactory.createString("apcu_fetch"))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative() && ((line = 291, ((line = 291, tools.valueFactory.createBarewordString("filter_var")).call([(line = 291, ((line = 291, tools.valueFactory.createBarewordString("ini_get")).call([(line = 291, tools.valueFactory.createString("apc.enabled"))], namespaceScope) || tools.valueFactory.createNull())), (line = 291, namespaceScope.getConstant("FILTER_VALIDATE_BOOLEAN"))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()))).coerceToBoolean().getNative() ? (line = 291, scope.getVariable("apcuPrefix").getValue()) : (line = 291, tools.valueFactory.createNull())))));}, args: [{"name":"apcuPrefix"}], line: 289}, "getApcuPrefix": {isStatic: false, method: function _getApcuPrefix() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 301;return (line = 301, (line = 301, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 301, tools.valueFactory.createBarewordString("apcuPrefix"))).getValue());}, args: [], line: 299}, "register": {isStatic: false, method: function _register($prepend) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("prepend").setValue($prepend.getValue());var $prepend = tools.createDebugVar(scope, "prepend");var $this = tools.createDebugVar(scope, "this");var $prepend = tools.createDebugVar(scope, "prepend");line = 311;(line = 311, ((line = 311, tools.valueFactory.createBarewordString("spl_autoload_register")).call([(line = 311, tools.valueFactory.createArray([(line = 311, scope.getVariable("this").getValue()), (line = 311, tools.valueFactory.createString("loadClass"))])), (line = 311, tools.valueFactory.createBoolean(true)), (line = 311, scope.getVariable("prepend"))], namespaceScope) || tools.valueFactory.createNull()));line = 313;if ((line = 313, (line = 313, tools.valueFactory.createNull()).isIdenticalTo((line = 313, (line = 313, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 313, tools.valueFactory.createBarewordString("vendorDir"))).getValue()))).coerceToBoolean().getNative()) {} else {line = 315;if ((line = 315, scope.getVariable("prepend").getValue()).coerceToBoolean().getNative()) {line = 316;(line = 316, (line = 316, (line = 316, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 316, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope)).setValue((line = 316, (line = 316, tools.valueFactory.createArray([(line = 316, tools.createKeyValuePair((line = 316, (line = 316, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 316, tools.valueFactory.createBarewordString("vendorDir"))).getValue()), (line = 316, scope.getVariable("this").getValue())))])).add((line = 316, (line = 316, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 316, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope).getValue())))));} else {line = 318;(line = 318, (line = 318, (line = 318, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 318, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope).getValue()).getElementByKey((line = 318, (line = 318, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 318, tools.valueFactory.createBarewordString("vendorDir"))).getValue()))).unset();line = 319;(line = 319, (line = 319, tools.implyArray((line = 319, (line = 319, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 319, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope))).getElementByKey((line = 319, (line = 319, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 319, tools.valueFactory.createBarewordString("vendorDir"))).getValue()))).setValue((line = 319, scope.getVariable("this").getValue())));}}}, args: [{"name":"prepend","value":function () { return (line = 309, tools.valueFactory.createBoolean(false)); }}], line: 309}, "unregister": {isStatic: false, method: function _unregister() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 328;(line = 328, ((line = 328, tools.valueFactory.createBarewordString("spl_autoload_unregister")).call([(line = 328, tools.valueFactory.createArray([(line = 328, scope.getVariable("this").getValue()), (line = 328, tools.valueFactory.createString("loadClass"))]))], namespaceScope) || tools.valueFactory.createNull()));line = 330;if ((line = 330, (line = 330, tools.valueFactory.createNull()).isNotIdenticalTo((line = 330, (line = 330, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 330, tools.valueFactory.createBarewordString("vendorDir"))).getValue()))).coerceToBoolean().getNative()) {line = 331;(line = 331, (line = 331, (line = 331, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 331, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope).getValue()).getElementByKey((line = 331, (line = 331, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 331, tools.valueFactory.createBarewordString("vendorDir"))).getValue()))).unset();}}, args: [], line: 326}, "loadClass": {isStatic: false, method: function _loadClass($class) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("class").setValue($class.getValue());var $class = tools.createDebugVar(scope, "class");var $this = tools.createDebugVar(scope, "this");var $file = tools.createDebugVar(scope, "file");var $class = tools.createDebugVar(scope, "class");line = 343;if ((line = 343, (line = 343, scope.getVariable("file")).setValue((line = 343, (line = 343, scope.getVariable("this").getValue()).callMethod((line = 343, tools.valueFactory.createBarewordString("findFile")).getNative(), [(line = 343, scope.getVariable("class"))])))).coerceToBoolean().getNative()) {line = 344;(line = 344, ((line = 344, tools.valueFactory.createBarewordString("includeFile")).call([(line = 344, scope.getVariable("file"))], namespaceScope) || tools.valueFactory.createNull()));line = 346;return (line = 346, tools.valueFactory.createBoolean(true));}}, args: [{"name":"class"}], line: 341}, "findFile": {isStatic: false, method: function _findFile($class) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("class").setValue($class.getValue());var $class = tools.createDebugVar(scope, "class");var $this = tools.createDebugVar(scope, "this");var $class = tools.createDebugVar(scope, "class");var $file = tools.createDebugVar(scope, "file");var $hit = tools.createDebugVar(scope, "hit");line = 360;if ((line = 360, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 360, (line = 360, (line = 360, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 360, tools.valueFactory.createBarewordString("classMap"))).getValue()).getElementByKey((line = 360, scope.getVariable("class").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 361;return (line = 361, (line = 361, (line = 361, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 361, tools.valueFactory.createBarewordString("classMap"))).getValue()).getElementByKey((line = 361, scope.getVariable("class").getValue())).getValue());}line = 363;if ((line = 363, tools.valueFactory.createBoolean((line = 363, (line = 363, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 363, tools.valueFactory.createBarewordString("classMapAuthoritative"))).getValue()).coerceToBoolean().getNative() || ((line = 363, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 363, (line = 363, (line = 363, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 363, tools.valueFactory.createBarewordString("missingClasses"))).getValue()).getElementByKey((line = 363, scope.getVariable("class").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()))).coerceToBoolean().getNative()) {line = 364;return (line = 364, tools.valueFactory.createBoolean(false));}line = 366;if ((line = 366, (line = 366, tools.valueFactory.createNull()).isNotIdenticalTo((line = 366, (line = 366, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 366, tools.valueFactory.createBarewordString("apcuPrefix"))).getValue()))).coerceToBoolean().getNative()) {line = 367;(line = 367, (line = 367, scope.getVariable("file")).setValue((line = 367, ((line = 367, tools.valueFactory.createBarewordString("apcu_fetch")).call([(line = 367, (line = 367, (line = 367, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 367, tools.valueFactory.createBarewordString("apcuPrefix"))).getValue()).concat((line = 367, scope.getVariable("class").getValue()))), (line = 367, scope.getVariable("hit"))], namespaceScope) || tools.valueFactory.createNull()))));line = 368;if ((line = 368, scope.getVariable("hit").getValue()).coerceToBoolean().getNative()) {line = 369;return (line = 369, scope.getVariable("file").getValue());}}line = 373;(line = 373, (line = 373, scope.getVariable("file")).setValue((line = 373, (line = 373, scope.getVariable("this").getValue()).callMethod((line = 373, tools.valueFactory.createBarewordString("findFileWithExtension")).getNative(), [(line = 373, scope.getVariable("class")), (line = 373, tools.valueFactory.createString(".php"))]))));line = 376;if ((line = 376, tools.valueFactory.createBoolean((line = 376, (line = 376, tools.valueFactory.createBoolean(false)).isIdenticalTo((line = 376, scope.getVariable("file").getValue()))).coerceToBoolean().getNative() && ((line = 376, ((line = 376, tools.valueFactory.createBarewordString("defined")).call([(line = 376, tools.valueFactory.createString("HHVM_VERSION"))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()))).coerceToBoolean().getNative()) {line = 377;(line = 377, (line = 377, scope.getVariable("file")).setValue((line = 377, (line = 377, scope.getVariable("this").getValue()).callMethod((line = 377, tools.valueFactory.createBarewordString("findFileWithExtension")).getNative(), [(line = 377, scope.getVariable("class")), (line = 377, tools.valueFactory.createString(".hh"))]))));}line = 380;if ((line = 380, (line = 380, tools.valueFactory.createNull()).isNotIdenticalTo((line = 380, (line = 380, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 380, tools.valueFactory.createBarewordString("apcuPrefix"))).getValue()))).coerceToBoolean().getNative()) {line = 381;(line = 381, ((line = 381, tools.valueFactory.createBarewordString("apcu_add")).call([(line = 381, (line = 381, (line = 381, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 381, tools.valueFactory.createBarewordString("apcuPrefix"))).getValue()).concat((line = 381, scope.getVariable("class").getValue()))), (line = 381, scope.getVariable("file"))], namespaceScope) || tools.valueFactory.createNull()));}line = 384;if ((line = 384, (line = 384, tools.valueFactory.createBoolean(false)).isIdenticalTo((line = 384, scope.getVariable("file").getValue()))).coerceToBoolean().getNative()) {line = 386;(line = 386, (line = 386, tools.implyArray((line = 386, tools.implyObject((line = 386, scope.getVariable("this"))).getInstancePropertyByName((line = 386, tools.valueFactory.createBarewordString("missingClasses"))))).getElementByKey((line = 386, scope.getVariable("class").getValue()))).setValue((line = 386, tools.valueFactory.createBoolean(true))));}line = 389;return (line = 389, scope.getVariable("file").getValue());}, args: [{"name":"class"}], line: 357}, "getRegisteredLoaders": {isStatic: true, method: function _getRegisteredLoaders() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 399;return (line = 399, (line = 399, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 399, tools.valueFactory.createBarewordString("registeredLoaders")), namespaceScope).getValue());}, args: [], line: 397}, "findFileWithExtension": {isStatic: false, method: function _findFileWithExtension($class, $ext) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("class").setValue($class.getValue());var $class = tools.createDebugVar(scope, "class");scope.getVariable("ext").setValue($ext.getValue());var $ext = tools.createDebugVar(scope, "ext");var $this = tools.createDebugVar(scope, "this");var $logicalPathPsr4 = tools.createDebugVar(scope, "logicalPathPsr4");var $class = tools.createDebugVar(scope, "class");var $ext = tools.createDebugVar(scope, "ext");var $first = tools.createDebugVar(scope, "first");var $subPath = tools.createDebugVar(scope, "subPath");var $lastPos = tools.createDebugVar(scope, "lastPos");var $search = tools.createDebugVar(scope, "search");var $pathEnd = tools.createDebugVar(scope, "pathEnd");var $dir = tools.createDebugVar(scope, "dir");var $file = tools.createDebugVar(scope, "file");var $pos = tools.createDebugVar(scope, "pos");var $logicalPathPsr0 = tools.createDebugVar(scope, "logicalPathPsr0");var $prefix = tools.createDebugVar(scope, "prefix");var $dirs = tools.createDebugVar(scope, "dirs");line = 405;(line = 405, (line = 405, scope.getVariable("logicalPathPsr4")).setValue((line = 405, (line = 405, ((line = 405, tools.valueFactory.createBarewordString("strtr")).call([(line = 405, scope.getVariable("class")), (line = 405, tools.valueFactory.createString("\\")), (line = 405, namespaceScope.getConstant("DIRECTORY_SEPARATOR"))], namespaceScope) || tools.valueFactory.createNull())).concat((line = 405, scope.getVariable("ext").getValue())))));line = 407;(line = 407, (line = 407, scope.getVariable("first")).setValue((line = 407, (line = 407, scope.getVariable("class").getValue()).getElementByKey((line = 407, tools.valueFactory.createInteger(0))).getValue())));line = 408;if ((line = 408, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 408, (line = 408, (line = 408, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 408, tools.valueFactory.createBarewordString("prefixLengthsPsr4"))).getValue()).getElementByKey((line = 408, scope.getVariable("first").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 409;(line = 409, (line = 409, scope.getVariable("subPath")).setValue((line = 409, scope.getVariable("class").getValue())));line = 410;block_1: while ((line = 410, (line = 410, tools.valueFactory.createBoolean(false)).isNotIdenticalTo((line = 410, (line = 410, scope.getVariable("lastPos")).setValue((line = 410, ((line = 410, tools.valueFactory.createBarewordString("strrpos")).call([(line = 410, scope.getVariable("subPath")), (line = 410, tools.valueFactory.createString("\\"))], namespaceScope) || tools.valueFactory.createNull())))))).coerceToBoolean().getNative()) {line = 411;(line = 411, (line = 411, scope.getVariable("subPath")).setValue((line = 411, ((line = 411, tools.valueFactory.createBarewordString("substr")).call([(line = 411, scope.getVariable("subPath")), (line = 411, tools.valueFactory.createInteger(0)), (line = 411, scope.getVariable("lastPos"))], namespaceScope) || tools.valueFactory.createNull()))));line = 412;(line = 412, (line = 412, scope.getVariable("search")).setValue((line = 412, (line = 412, scope.getVariable("subPath").getValue()).concat((line = 412, tools.valueFactory.createString("\\"))))));line = 413;if ((line = 413, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 413, (line = 413, (line = 413, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 413, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue()).getElementByKey((line = 413, scope.getVariable("search").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 414;(line = 414, (line = 414, scope.getVariable("pathEnd")).setValue((line = 414, (line = 414, namespaceScope.getConstant("DIRECTORY_SEPARATOR")).concat((line = 414, ((line = 414, tools.valueFactory.createBarewordString("substr")).call([(line = 414, scope.getVariable("logicalPathPsr4")), (line = 414, (line = 414, scope.getVariable("lastPos").getValue()).add((line = 414, tools.valueFactory.createInteger(1))))], namespaceScope) || tools.valueFactory.createNull()))))));line = 415;block_2: for (var iterator_2 = (line = 415, (line = 415, (line = 415, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 415, tools.valueFactory.createBarewordString("prefixDirsPsr4"))).getValue()).getElementByKey((line = 415, scope.getVariable("search").getValue())).getValue()).getIterator(); iterator_2.isNotFinished(); iterator_2.advance()) {(line = 415, scope.getVariable("dir")).setValue(iterator_2.getCurrentElementValue());line = 416;if ((line = 416, ((line = 416, tools.valueFactory.createBarewordString("file_exists")).call([(line = 416, (line = 416, scope.getVariable("file")).setValue((line = 416, (line = 416, scope.getVariable("dir").getValue()).concat((line = 416, scope.getVariable("pathEnd").getValue())))))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 417;return (line = 417, scope.getVariable("file").getValue());}}}}}line = 425;block_1: for (var iterator_1 = (line = 425, (line = 425, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 425, tools.valueFactory.createBarewordString("fallbackDirsPsr4"))).getValue()).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 425, scope.getVariable("dir")).setValue(iterator_1.getCurrentElementValue());line = 426;if ((line = 426, ((line = 426, tools.valueFactory.createBarewordString("file_exists")).call([(line = 426, (line = 426, scope.getVariable("file")).setValue((line = 426, (line = 426, (line = 426, scope.getVariable("dir").getValue()).concat((line = 426, namespaceScope.getConstant("DIRECTORY_SEPARATOR")))).concat((line = 426, scope.getVariable("logicalPathPsr4").getValue())))))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 427;return (line = 427, scope.getVariable("file").getValue());}}line = 432;if ((line = 432, (line = 432, tools.valueFactory.createBoolean(false)).isNotIdenticalTo((line = 432, (line = 432, scope.getVariable("pos")).setValue((line = 432, ((line = 432, tools.valueFactory.createBarewordString("strrpos")).call([(line = 432, scope.getVariable("class")), (line = 432, tools.valueFactory.createString("\\"))], namespaceScope) || tools.valueFactory.createNull())))))).coerceToBoolean().getNative()) {line = 434;(line = 434, (line = 434, scope.getVariable("logicalPathPsr0")).setValue((line = 434, (line = 434, ((line = 434, tools.valueFactory.createBarewordString("substr")).call([(line = 434, scope.getVariable("logicalPathPsr4")), (line = 434, tools.valueFactory.createInteger(0)), (line = 434, (line = 434, scope.getVariable("pos").getValue()).add((line = 434, tools.valueFactory.createInteger(1))))], namespaceScope) || tools.valueFactory.createNull())).concat((line = 435, ((line = 435, tools.valueFactory.createBarewordString("strtr")).call([(line = 435, ((line = 435, tools.valueFactory.createBarewordString("substr")).call([(line = 435, scope.getVariable("logicalPathPsr4")), (line = 435, (line = 435, scope.getVariable("pos").getValue()).add((line = 435, tools.valueFactory.createInteger(1))))], namespaceScope) || tools.valueFactory.createNull())), (line = 435, tools.valueFactory.createString("_")), (line = 435, namespaceScope.getConstant("DIRECTORY_SEPARATOR"))], namespaceScope) || tools.valueFactory.createNull()))))));} else {line = 438;(line = 438, (line = 438, scope.getVariable("logicalPathPsr0")).setValue((line = 438, (line = 438, ((line = 438, tools.valueFactory.createBarewordString("strtr")).call([(line = 438, scope.getVariable("class")), (line = 438, tools.valueFactory.createString("_")), (line = 438, namespaceScope.getConstant("DIRECTORY_SEPARATOR"))], namespaceScope) || tools.valueFactory.createNull())).concat((line = 438, scope.getVariable("ext").getValue())))));}line = 441;if ((line = 441, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 441, (line = 441, (line = 441, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 441, tools.valueFactory.createBarewordString("prefixesPsr0"))).getValue()).getElementByKey((line = 441, scope.getVariable("first").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 442;block_1: for (var iterator_1 = (line = 442, (line = 442, (line = 442, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 442, tools.valueFactory.createBarewordString("prefixesPsr0"))).getValue()).getElementByKey((line = 442, scope.getVariable("first").getValue())).getValue()).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 442, scope.getVariable("dirs")).setValue(iterator_1.getCurrentElementValue());(line = 442, scope.getVariable("prefix")).setValue(iterator_1.getCurrentKey());line = 443;if ((line = 443, (line = 443, tools.valueFactory.createInteger(0)).isIdenticalTo((line = 443, ((line = 443, tools.valueFactory.createBarewordString("strpos")).call([(line = 443, scope.getVariable("class")), (line = 443, scope.getVariable("prefix"))], namespaceScope) || tools.valueFactory.createNull())))).coerceToBoolean().getNative()) {line = 444;block_2: for (var iterator_2 = (line = 444, scope.getVariable("dirs").getValue()).getIterator(); iterator_2.isNotFinished(); iterator_2.advance()) {(line = 444, scope.getVariable("dir")).setValue(iterator_2.getCurrentElementValue());line = 445;if ((line = 445, ((line = 445, tools.valueFactory.createBarewordString("file_exists")).call([(line = 445, (line = 445, scope.getVariable("file")).setValue((line = 445, (line = 445, (line = 445, scope.getVariable("dir").getValue()).concat((line = 445, namespaceScope.getConstant("DIRECTORY_SEPARATOR")))).concat((line = 445, scope.getVariable("logicalPathPsr0").getValue())))))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 446;return (line = 446, scope.getVariable("file").getValue());}}}}}line = 454;block_1: for (var iterator_1 = (line = 454, (line = 454, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 454, tools.valueFactory.createBarewordString("fallbackDirsPsr0"))).getValue()).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 454, scope.getVariable("dir")).setValue(iterator_1.getCurrentElementValue());line = 455;if ((line = 455, ((line = 455, tools.valueFactory.createBarewordString("file_exists")).call([(line = 455, (line = 455, scope.getVariable("file")).setValue((line = 455, (line = 455, (line = 455, scope.getVariable("dir").getValue()).concat((line = 455, namespaceScope.getConstant("DIRECTORY_SEPARATOR")))).concat((line = 455, scope.getVariable("logicalPathPsr0").getValue())))))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 456;return (line = 456, scope.getVariable("file").getValue());}}line = 461;if ((line = 461, tools.valueFactory.createBoolean((line = 461, (line = 461, scope.getVariable("this").getValue()).getInstancePropertyByName((line = 461, tools.valueFactory.createBarewordString("useIncludePath"))).getValue()).coerceToBoolean().getNative() && ((line = 461, (line = 461, scope.getVariable("file")).setValue((line = 461, ((line = 461, tools.valueFactory.createBarewordString("stream_resolve_include_path")).call([(line = 461, scope.getVariable("logicalPathPsr0"))], namespaceScope) || tools.valueFactory.createNull())))).coerceToBoolean().getNative()))).coerceToBoolean().getNative()) {line = 462;return (line = 462, scope.getVariable("file").getValue());}line = 465;return (line = 465, tools.valueFactory.createBoolean(false));}, args: [{"name":"class"},{"name":"ext"}], line: 402}}, constants: {}}, namespaceScope);}());line = 474;namespace.defineFunction("includeFile", function _includeFile($file) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("file").setValue($file.getValue());var $file = tools.createDebugVar(scope, "file");var $this = tools.createDebugVar(scope, "this");var $file = tools.createDebugVar(scope, "file");line = 476;(line = 476, tools.include((line = 476, scope.getVariable("file").getValue()).getNative(), scope));}, namespaceScope, [{"name":"file"}], 474);}(namespace))) { return namespaceResult; }return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(/*! ./../../node_modules/webpack/buildin/module.js */ "./node_modules/webpack/buildin/module.js")(module)))
 
 /***/ }),
 
@@ -36191,8 +36720,9 @@ module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./n
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
-module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/InstalledVersions.php", __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 13;if (namespaceResult = (function (globalNamespace) {var namespace = globalNamespace.getDescendant("Composer"), namespaceScope = tools.createNamespaceScope(namespace);line = 15;namespaceScope.use("Composer\\Autoload\\ClassLoader");line = 16;namespaceScope.use("Composer\\Semver\\VersionParser");line = 23;(function () {var currentClass = namespace.defineClass("InstalledVersions", {superClass: null, interfaces: [], staticProperties: {"installed": {visibility: "private", value: function (currentClass) { return (line = 25, tools.valueFactory.createArray([(line = 26, tools.createKeyValuePair((line = 26, tools.valueFactory.createString("root")), (line = 27, tools.valueFactory.createArray([(line = 28, tools.createKeyValuePair((line = 28, tools.valueFactory.createString("pretty_version")), (line = 28, tools.valueFactory.createString("1.0.0+no-version-set")))), (line = 29, tools.createKeyValuePair((line = 29, tools.valueFactory.createString("version")), (line = 29, tools.valueFactory.createString("1.0.0.0")))), (line = 30, tools.createKeyValuePair((line = 30, tools.valueFactory.createString("aliases")), (line = 31, tools.valueFactory.createArray([])))), (line = 33, tools.createKeyValuePair((line = 33, tools.valueFactory.createString("reference")), (line = 33, tools.valueFactory.createNull()))), (line = 34, tools.createKeyValuePair((line = 34, tools.valueFactory.createString("name")), (line = 34, tools.valueFactory.createString("uniter/markdown-plugin-example"))))])))), (line = 36, tools.createKeyValuePair((line = 36, tools.valueFactory.createString("versions")), (line = 37, tools.valueFactory.createArray([(line = 38, tools.createKeyValuePair((line = 38, tools.valueFactory.createString("uniter/markdown-plugin-example")), (line = 39, tools.valueFactory.createArray([(line = 40, tools.createKeyValuePair((line = 40, tools.valueFactory.createString("pretty_version")), (line = 40, tools.valueFactory.createString("1.0.0+no-version-set")))), (line = 41, tools.createKeyValuePair((line = 41, tools.valueFactory.createString("version")), (line = 41, tools.valueFactory.createString("1.0.0.0")))), (line = 42, tools.createKeyValuePair((line = 42, tools.valueFactory.createString("aliases")), (line = 43, tools.valueFactory.createArray([])))), (line = 45, tools.createKeyValuePair((line = 45, tools.valueFactory.createString("reference")), (line = 45, tools.valueFactory.createNull())))]))))]))))])); }}, "canGetVendors": {visibility: "private", value: function (currentClass) { return tools.valueFactory.createNull(); }}, "installedByVendor": {visibility: "private", value: function (currentClass) { return (line = 50, tools.valueFactory.createArray([])); }}}, properties: {}, methods: {"getInstalledPackages": {isStatic: true, method: function _getInstalledPackages() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $packages = tools.createDebugVar(scope, "packages");var $installed = tools.createDebugVar(scope, "installed");line = 60;(line = 60, (line = 60, scope.getVariable("packages")).setValue((line = 60, tools.valueFactory.createArray([]))));line = 61;block_1: for (var iterator_1 = (line = 61, (line = 61, scope.getClassNameOrThrow()).callStaticMethod((line = 61, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 61, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 62;(line = 62, (line = 62, tools.implyArray((line = 62, scope.getVariable("packages"))).getPushElement()).setValue((line = 62, ((line = 62, tools.valueFactory.createBarewordString("array_keys")).call([(line = 62, (line = 62, scope.getVariable("installed").getValue()).getElementByKey((line = 62, tools.valueFactory.createString("versions"))))], namespaceScope) || tools.valueFactory.createNull()))));}line = 66;if ((line = 66, (line = 66, tools.valueFactory.createInteger(1)).isIdenticalTo((line = 66, ((line = 66, tools.valueFactory.createBarewordString("\\count")).call([(line = 66, scope.getVariable("packages"))], namespaceScope) || tools.valueFactory.createNull())))).coerceToBoolean().getNative()) {line = 67;return (line = 67, (line = 67, scope.getVariable("packages").getValue()).getElementByKey((line = 67, tools.valueFactory.createInteger(0))).getValue());}line = 70;return (line = 70, ((line = 70, tools.valueFactory.createBarewordString("array_keys")).call([(line = 70, ((line = 70, tools.valueFactory.createBarewordString("array_flip")).call([(line = 70, ((line = 70, tools.valueFactory.createBarewordString("\\call_user_func_array")).call([(line = 70, tools.valueFactory.createString("array_merge")), (line = 70, scope.getVariable("packages"))], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()));}, args: [], line: 58}, "isInstalled": {isStatic: true, method: function _isInstalled($packageName) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $packageName = tools.createDebugVar(scope, "packageName");line = 83;block_1: for (var iterator_1 = (line = 83, (line = 83, scope.getClassNameOrThrow()).callStaticMethod((line = 83, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 83, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 84;if ((line = 84, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 84, (line = 84, scope.getVariable("installed").getValue()).getElementByKey((line = 84, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 84, scope.getVariable("packageName").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 85;return (line = 85, tools.valueFactory.createBoolean(true));}}line = 89;return (line = 89, tools.valueFactory.createBoolean(false));}, args: [{"name":"packageName"}], line: 81}, "satisfies": {isStatic: true, method: function _satisfies($parser, $packageName, $constraint) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("parser").setValue($parser.getValue());var $parser = tools.createDebugVar(scope, "parser");scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");scope.getVariable("constraint").setValue($constraint.getValue());var $constraint = tools.createDebugVar(scope, "constraint");var $this = tools.createDebugVar(scope, "this");var $constraint = tools.createDebugVar(scope, "constraint");var $parser = tools.createDebugVar(scope, "parser");var $provided = tools.createDebugVar(scope, "provided");var $packageName = tools.createDebugVar(scope, "packageName");line = 107;(line = 107, (line = 107, scope.getVariable("constraint")).setValue((line = 107, (line = 107, scope.getVariable("parser").getValue()).callMethod((line = 107, tools.valueFactory.createBarewordString("parseConstraints")).getNative(), [(line = 107, scope.getVariable("constraint"))]))));line = 108;(line = 108, (line = 108, scope.getVariable("provided")).setValue((line = 108, (line = 108, scope.getVariable("parser").getValue()).callMethod((line = 108, tools.valueFactory.createBarewordString("parseConstraints")).getNative(), [(line = 108, (line = 108, scope.getClassNameOrThrow()).callStaticMethod((line = 108, tools.valueFactory.createBarewordString("getVersionRanges")), [(line = 108, scope.getVariable("packageName"))], namespaceScope, true))]))));line = 110;return (line = 110, (line = 110, scope.getVariable("provided").getValue()).callMethod((line = 110, tools.valueFactory.createBarewordString("matches")).getNative(), [(line = 110, scope.getVariable("constraint"))]));}, args: [{"type":"class","className":"VersionParser","name":"parser"},{"name":"packageName"},{"name":"constraint"}], line: 105}, "getVersionRanges": {isStatic: true, method: function _getVersionRanges($packageName) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $packageName = tools.createDebugVar(scope, "packageName");var $ranges = tools.createDebugVar(scope, "ranges");line = 124;block_1: for (var iterator_1 = (line = 124, (line = 124, scope.getClassNameOrThrow()).callStaticMethod((line = 124, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 124, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 125;if ((line = 125, (line = 125, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 125, (line = 125, scope.getVariable("installed").getValue()).getElementByKey((line = 125, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 125, scope.getVariable("packageName").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 126;continue block_1;}line = 129;(line = 129, (line = 129, scope.getVariable("ranges")).setValue((line = 129, tools.valueFactory.createArray([]))));line = 130;if ((line = 130, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 130, (line = 130, scope.getVariable("installed").getValue()).getElementByKey((line = 130, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 130, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 130, tools.valueFactory.createString("pretty_version")))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 131;(line = 131, (line = 131, tools.implyArray((line = 131, scope.getVariable("ranges"))).getPushElement()).setValue((line = 131, (line = 131, scope.getVariable("installed").getValue()).getElementByKey((line = 131, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 131, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 131, tools.valueFactory.createString("pretty_version"))).getValue())));}line = 133;if ((line = 133, ((line = 133, tools.valueFactory.createBarewordString("array_key_exists")).call([(line = 133, tools.valueFactory.createString("aliases")), (line = 133, (line = 133, scope.getVariable("installed").getValue()).getElementByKey((line = 133, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 133, scope.getVariable("packageName").getValue())))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 134;(line = 134, (line = 134, scope.getVariable("ranges")).setValue((line = 134, ((line = 134, tools.valueFactory.createBarewordString("array_merge")).call([(line = 134, scope.getVariable("ranges")), (line = 134, (line = 134, scope.getVariable("installed").getValue()).getElementByKey((line = 134, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 134, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 134, tools.valueFactory.createString("aliases"))))], namespaceScope) || tools.valueFactory.createNull()))));}line = 136;if ((line = 136, ((line = 136, tools.valueFactory.createBarewordString("array_key_exists")).call([(line = 136, tools.valueFactory.createString("replaced")), (line = 136, (line = 136, scope.getVariable("installed").getValue()).getElementByKey((line = 136, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 136, scope.getVariable("packageName").getValue())))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 137;(line = 137, (line = 137, scope.getVariable("ranges")).setValue((line = 137, ((line = 137, tools.valueFactory.createBarewordString("array_merge")).call([(line = 137, scope.getVariable("ranges")), (line = 137, (line = 137, scope.getVariable("installed").getValue()).getElementByKey((line = 137, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 137, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 137, tools.valueFactory.createString("replaced"))))], namespaceScope) || tools.valueFactory.createNull()))));}line = 139;if ((line = 139, ((line = 139, tools.valueFactory.createBarewordString("array_key_exists")).call([(line = 139, tools.valueFactory.createString("provided")), (line = 139, (line = 139, scope.getVariable("installed").getValue()).getElementByKey((line = 139, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 139, scope.getVariable("packageName").getValue())))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 140;(line = 140, (line = 140, scope.getVariable("ranges")).setValue((line = 140, ((line = 140, tools.valueFactory.createBarewordString("array_merge")).call([(line = 140, scope.getVariable("ranges")), (line = 140, (line = 140, scope.getVariable("installed").getValue()).getElementByKey((line = 140, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 140, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 140, tools.valueFactory.createString("provided"))))], namespaceScope) || tools.valueFactory.createNull()))));}line = 143;return (line = 143, ((line = 143, tools.valueFactory.createBarewordString("implode")).call([(line = 143, tools.valueFactory.createString(" || ")), (line = 143, scope.getVariable("ranges"))], namespaceScope) || tools.valueFactory.createNull()));}line = 146;throw (line = 146, tools.createInstance(namespaceScope, (line = 146, tools.valueFactory.createBarewordString("\\OutOfBoundsException")), [(line = 146, (line = 146, (line = 146, tools.valueFactory.createString("Package \"")).concat((line = 146, scope.getVariable("packageName").getValue()))).concat((line = 146, tools.valueFactory.createString("\" is not installed"))))]));}, args: [{"name":"packageName"}], line: 122}, "getVersion": {isStatic: true, method: function _getVersion($packageName) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $packageName = tools.createDebugVar(scope, "packageName");line = 155;block_1: for (var iterator_1 = (line = 155, (line = 155, scope.getClassNameOrThrow()).callStaticMethod((line = 155, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 155, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 156;if ((line = 156, (line = 156, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 156, (line = 156, scope.getVariable("installed").getValue()).getElementByKey((line = 156, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 156, scope.getVariable("packageName").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 157;continue block_1;}line = 160;if ((line = 160, (line = 160, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 160, (line = 160, scope.getVariable("installed").getValue()).getElementByKey((line = 160, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 160, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 160, tools.valueFactory.createString("version")))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 161;return (line = 161, tools.valueFactory.createNull());}line = 164;return (line = 164, (line = 164, scope.getVariable("installed").getValue()).getElementByKey((line = 164, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 164, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 164, tools.valueFactory.createString("version"))).getValue());}line = 167;throw (line = 167, tools.createInstance(namespaceScope, (line = 167, tools.valueFactory.createBarewordString("\\OutOfBoundsException")), [(line = 167, (line = 167, (line = 167, tools.valueFactory.createString("Package \"")).concat((line = 167, scope.getVariable("packageName").getValue()))).concat((line = 167, tools.valueFactory.createString("\" is not installed"))))]));}, args: [{"name":"packageName"}], line: 153}, "getPrettyVersion": {isStatic: true, method: function _getPrettyVersion($packageName) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $packageName = tools.createDebugVar(scope, "packageName");line = 176;block_1: for (var iterator_1 = (line = 176, (line = 176, scope.getClassNameOrThrow()).callStaticMethod((line = 176, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 176, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 177;if ((line = 177, (line = 177, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 177, (line = 177, scope.getVariable("installed").getValue()).getElementByKey((line = 177, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 177, scope.getVariable("packageName").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 178;continue block_1;}line = 181;if ((line = 181, (line = 181, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 181, (line = 181, scope.getVariable("installed").getValue()).getElementByKey((line = 181, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 181, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 181, tools.valueFactory.createString("pretty_version")))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 182;return (line = 182, tools.valueFactory.createNull());}line = 185;return (line = 185, (line = 185, scope.getVariable("installed").getValue()).getElementByKey((line = 185, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 185, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 185, tools.valueFactory.createString("pretty_version"))).getValue());}line = 188;throw (line = 188, tools.createInstance(namespaceScope, (line = 188, tools.valueFactory.createBarewordString("\\OutOfBoundsException")), [(line = 188, (line = 188, (line = 188, tools.valueFactory.createString("Package \"")).concat((line = 188, scope.getVariable("packageName").getValue()))).concat((line = 188, tools.valueFactory.createString("\" is not installed"))))]));}, args: [{"name":"packageName"}], line: 174}, "getReference": {isStatic: true, method: function _getReference($packageName) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $packageName = tools.createDebugVar(scope, "packageName");line = 197;block_1: for (var iterator_1 = (line = 197, (line = 197, scope.getClassNameOrThrow()).callStaticMethod((line = 197, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 197, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 198;if ((line = 198, (line = 198, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 198, (line = 198, scope.getVariable("installed").getValue()).getElementByKey((line = 198, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 198, scope.getVariable("packageName").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 199;continue block_1;}line = 202;if ((line = 202, (line = 202, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 202, (line = 202, scope.getVariable("installed").getValue()).getElementByKey((line = 202, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 202, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 202, tools.valueFactory.createString("reference")))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 203;return (line = 203, tools.valueFactory.createNull());}line = 206;return (line = 206, (line = 206, scope.getVariable("installed").getValue()).getElementByKey((line = 206, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 206, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 206, tools.valueFactory.createString("reference"))).getValue());}line = 209;throw (line = 209, tools.createInstance(namespaceScope, (line = 209, tools.valueFactory.createBarewordString("\\OutOfBoundsException")), [(line = 209, (line = 209, (line = 209, tools.valueFactory.createString("Package \"")).concat((line = 209, scope.getVariable("packageName").getValue()))).concat((line = 209, tools.valueFactory.createString("\" is not installed"))))]));}, args: [{"name":"packageName"}], line: 195}, "getRootPackage": {isStatic: true, method: function _getRootPackage() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");line = 218;(line = 218, (line = 218, scope.getVariable("installed")).setValue((line = 218, (line = 218, scope.getClassNameOrThrow()).callStaticMethod((line = 218, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true))));line = 220;return (line = 220, (line = 220, scope.getVariable("installed").getValue()).getElementByKey((line = 220, tools.valueFactory.createInteger(0))).getValue().getElementByKey((line = 220, tools.valueFactory.createString("root"))).getValue());}, args: [], line: 216}, "getRawData": {isStatic: true, method: function _getRawData() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 231;return (line = 231, (line = 231, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 231, tools.valueFactory.createBarewordString("installed")), namespaceScope).getValue());}, args: [], line: 229}, "reload": {isStatic: true, method: function _reload($data) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("data").setValue($data.getValue());var $data = tools.createDebugVar(scope, "data");var $this = tools.createDebugVar(scope, "this");var $data = tools.createDebugVar(scope, "data");line = 254;(line = 254, (line = 254, (line = 254, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 254, tools.valueFactory.createBarewordString("installed")), namespaceScope)).setValue((line = 254, scope.getVariable("data").getValue())));line = 255;(line = 255, (line = 255, (line = 255, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 255, tools.valueFactory.createBarewordString("installedByVendor")), namespaceScope)).setValue((line = 255, tools.valueFactory.createArray([]))));}, args: [{"name":"data"}], line: 252}, "getInstalled": {isStatic: true, method: function _getInstalled() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $vendorDir = tools.createDebugVar(scope, "vendorDir");var $loader = tools.createDebugVar(scope, "loader");line = 263;if ((line = 263, (line = 263, tools.valueFactory.createNull()).isIdenticalTo((line = 263, (line = 263, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 263, tools.valueFactory.createBarewordString("canGetVendors")), namespaceScope).getValue()))).coerceToBoolean().getNative()) {line = 264;(line = 264, (line = 264, (line = 264, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 264, tools.valueFactory.createBarewordString("canGetVendors")), namespaceScope)).setValue((line = 264, ((line = 264, tools.valueFactory.createBarewordString("method_exists")).call([(line = 264, tools.valueFactory.createString("Composer\\Autoload\\ClassLoader")), (line = 264, tools.valueFactory.createString("getRegisteredLoaders"))], namespaceScope) || tools.valueFactory.createNull()))));}line = 267;(line = 267, (line = 267, scope.getVariable("installed")).setValue((line = 267, tools.valueFactory.createArray([]))));line = 269;if ((line = 269, (line = 269, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 269, tools.valueFactory.createBarewordString("canGetVendors")), namespaceScope).getValue()).coerceToBoolean().getNative()) {line = 271;block_1: for (var iterator_1 = (line = 271, (line = 271, tools.valueFactory.createBarewordString("ClassLoader")).callStaticMethod((line = 271, tools.valueFactory.createBarewordString("getRegisteredLoaders")), [], namespaceScope, false)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 271, scope.getVariable("loader")).setValue(iterator_1.getCurrentElementValue());(line = 271, scope.getVariable("vendorDir")).setValue(iterator_1.getCurrentKey());line = 272;if ((line = 272, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 272, (line = 272, (line = 272, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 272, tools.valueFactory.createBarewordString("installedByVendor")), namespaceScope).getValue()).getElementByKey((line = 272, scope.getVariable("vendorDir").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 273;(line = 273, (line = 273, tools.implyArray((line = 273, scope.getVariable("installed"))).getPushElement()).setValue((line = 273, (line = 273, (line = 273, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 273, tools.valueFactory.createBarewordString("installedByVendor")), namespaceScope).getValue()).getElementByKey((line = 273, scope.getVariable("vendorDir").getValue())).getValue())));} else {line = 274;if ((line = 274, ((line = 274, tools.valueFactory.createBarewordString("is_file")).call([(line = 274, (line = 274, scope.getVariable("vendorDir").getValue()).concat((line = 274, tools.valueFactory.createString("/composer/installed.php"))))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 275;(line = 275, (line = 275, tools.implyArray((line = 275, scope.getVariable("installed"))).getPushElement()).setValue((line = 275, (line = 275, tools.implyArray((line = 275, (line = 275, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 275, tools.valueFactory.createBarewordString("installedByVendor")), namespaceScope))).getElementByKey((line = 275, scope.getVariable("vendorDir").getValue()))).setValue((line = 275, tools.require((line = 275, (line = 275, scope.getVariable("vendorDir").getValue()).concat((line = 275, tools.valueFactory.createString("/composer/installed.php")))).getNative(), scope))))));}}}}line = 280;(line = 280, (line = 280, tools.implyArray((line = 280, scope.getVariable("installed"))).getPushElement()).setValue((line = 280, (line = 280, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 280, tools.valueFactory.createBarewordString("installed")), namespaceScope).getValue())));line = 282;return (line = 282, scope.getVariable("installed").getValue());}, args: [], line: 261}}, constants: {}}, namespaceScope);}());}(namespace))) { return namespaceResult; }return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */(function(module) {__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
+__webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/InstalledVersions.php", module, __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 13;if (namespaceResult = (function (globalNamespace) {var namespace = globalNamespace.getDescendant("Composer"), namespaceScope = tools.createNamespaceScope(namespace);line = 15;namespaceScope.use("Composer\\Autoload\\ClassLoader");line = 16;namespaceScope.use("Composer\\Semver\\VersionParser");line = 23;(function () {var currentClass = namespace.defineClass("InstalledVersions", {superClass: null, interfaces: [], staticProperties: {"installed": {visibility: "private", value: function (currentClass) { return (line = 25, tools.valueFactory.createArray([(line = 26, tools.createKeyValuePair((line = 26, tools.valueFactory.createString("root")), (line = 27, tools.valueFactory.createArray([(line = 28, tools.createKeyValuePair((line = 28, tools.valueFactory.createString("pretty_version")), (line = 28, tools.valueFactory.createString("1.0.0+no-version-set")))), (line = 29, tools.createKeyValuePair((line = 29, tools.valueFactory.createString("version")), (line = 29, tools.valueFactory.createString("1.0.0.0")))), (line = 30, tools.createKeyValuePair((line = 30, tools.valueFactory.createString("aliases")), (line = 31, tools.valueFactory.createArray([])))), (line = 33, tools.createKeyValuePair((line = 33, tools.valueFactory.createString("reference")), (line = 33, tools.valueFactory.createNull()))), (line = 34, tools.createKeyValuePair((line = 34, tools.valueFactory.createString("name")), (line = 34, tools.valueFactory.createString("uniter/markdown-plugin-example"))))])))), (line = 36, tools.createKeyValuePair((line = 36, tools.valueFactory.createString("versions")), (line = 37, tools.valueFactory.createArray([(line = 38, tools.createKeyValuePair((line = 38, tools.valueFactory.createString("uniter/markdown-plugin-example")), (line = 39, tools.valueFactory.createArray([(line = 40, tools.createKeyValuePair((line = 40, tools.valueFactory.createString("pretty_version")), (line = 40, tools.valueFactory.createString("1.0.0+no-version-set")))), (line = 41, tools.createKeyValuePair((line = 41, tools.valueFactory.createString("version")), (line = 41, tools.valueFactory.createString("1.0.0.0")))), (line = 42, tools.createKeyValuePair((line = 42, tools.valueFactory.createString("aliases")), (line = 43, tools.valueFactory.createArray([])))), (line = 45, tools.createKeyValuePair((line = 45, tools.valueFactory.createString("reference")), (line = 45, tools.valueFactory.createNull())))]))))]))))])); }}, "canGetVendors": {visibility: "private", value: function (currentClass) { return tools.valueFactory.createNull(); }}, "installedByVendor": {visibility: "private", value: function (currentClass) { return (line = 50, tools.valueFactory.createArray([])); }}}, properties: {}, methods: {"getInstalledPackages": {isStatic: true, method: function _getInstalledPackages() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $packages = tools.createDebugVar(scope, "packages");var $installed = tools.createDebugVar(scope, "installed");line = 60;(line = 60, (line = 60, scope.getVariable("packages")).setValue((line = 60, tools.valueFactory.createArray([]))));line = 61;block_1: for (var iterator_1 = (line = 61, (line = 61, scope.getClassNameOrThrow()).callStaticMethod((line = 61, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 61, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 62;(line = 62, (line = 62, tools.implyArray((line = 62, scope.getVariable("packages"))).getPushElement()).setValue((line = 62, ((line = 62, tools.valueFactory.createBarewordString("array_keys")).call([(line = 62, (line = 62, scope.getVariable("installed").getValue()).getElementByKey((line = 62, tools.valueFactory.createString("versions"))))], namespaceScope) || tools.valueFactory.createNull()))));}line = 66;if ((line = 66, (line = 66, tools.valueFactory.createInteger(1)).isIdenticalTo((line = 66, ((line = 66, tools.valueFactory.createBarewordString("\\count")).call([(line = 66, scope.getVariable("packages"))], namespaceScope) || tools.valueFactory.createNull())))).coerceToBoolean().getNative()) {line = 67;return (line = 67, (line = 67, scope.getVariable("packages").getValue()).getElementByKey((line = 67, tools.valueFactory.createInteger(0))).getValue());}line = 70;return (line = 70, ((line = 70, tools.valueFactory.createBarewordString("array_keys")).call([(line = 70, ((line = 70, tools.valueFactory.createBarewordString("array_flip")).call([(line = 70, ((line = 70, tools.valueFactory.createBarewordString("\\call_user_func_array")).call([(line = 70, tools.valueFactory.createString("array_merge")), (line = 70, scope.getVariable("packages"))], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()));}, args: [], line: 58}, "isInstalled": {isStatic: true, method: function _isInstalled($packageName) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $packageName = tools.createDebugVar(scope, "packageName");line = 83;block_1: for (var iterator_1 = (line = 83, (line = 83, scope.getClassNameOrThrow()).callStaticMethod((line = 83, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 83, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 84;if ((line = 84, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 84, (line = 84, scope.getVariable("installed").getValue()).getElementByKey((line = 84, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 84, scope.getVariable("packageName").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 85;return (line = 85, tools.valueFactory.createBoolean(true));}}line = 89;return (line = 89, tools.valueFactory.createBoolean(false));}, args: [{"name":"packageName"}], line: 81}, "satisfies": {isStatic: true, method: function _satisfies($parser, $packageName, $constraint) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("parser").setValue($parser.getValue());var $parser = tools.createDebugVar(scope, "parser");scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");scope.getVariable("constraint").setValue($constraint.getValue());var $constraint = tools.createDebugVar(scope, "constraint");var $this = tools.createDebugVar(scope, "this");var $constraint = tools.createDebugVar(scope, "constraint");var $parser = tools.createDebugVar(scope, "parser");var $provided = tools.createDebugVar(scope, "provided");var $packageName = tools.createDebugVar(scope, "packageName");line = 107;(line = 107, (line = 107, scope.getVariable("constraint")).setValue((line = 107, (line = 107, scope.getVariable("parser").getValue()).callMethod((line = 107, tools.valueFactory.createBarewordString("parseConstraints")).getNative(), [(line = 107, scope.getVariable("constraint"))]))));line = 108;(line = 108, (line = 108, scope.getVariable("provided")).setValue((line = 108, (line = 108, scope.getVariable("parser").getValue()).callMethod((line = 108, tools.valueFactory.createBarewordString("parseConstraints")).getNative(), [(line = 108, (line = 108, scope.getClassNameOrThrow()).callStaticMethod((line = 108, tools.valueFactory.createBarewordString("getVersionRanges")), [(line = 108, scope.getVariable("packageName"))], namespaceScope, true))]))));line = 110;return (line = 110, (line = 110, scope.getVariable("provided").getValue()).callMethod((line = 110, tools.valueFactory.createBarewordString("matches")).getNative(), [(line = 110, scope.getVariable("constraint"))]));}, args: [{"type":"class","className":"VersionParser","name":"parser"},{"name":"packageName"},{"name":"constraint"}], line: 105}, "getVersionRanges": {isStatic: true, method: function _getVersionRanges($packageName) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $packageName = tools.createDebugVar(scope, "packageName");var $ranges = tools.createDebugVar(scope, "ranges");line = 124;block_1: for (var iterator_1 = (line = 124, (line = 124, scope.getClassNameOrThrow()).callStaticMethod((line = 124, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 124, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 125;if ((line = 125, (line = 125, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 125, (line = 125, scope.getVariable("installed").getValue()).getElementByKey((line = 125, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 125, scope.getVariable("packageName").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 126;continue block_1;}line = 129;(line = 129, (line = 129, scope.getVariable("ranges")).setValue((line = 129, tools.valueFactory.createArray([]))));line = 130;if ((line = 130, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 130, (line = 130, scope.getVariable("installed").getValue()).getElementByKey((line = 130, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 130, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 130, tools.valueFactory.createString("pretty_version")))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 131;(line = 131, (line = 131, tools.implyArray((line = 131, scope.getVariable("ranges"))).getPushElement()).setValue((line = 131, (line = 131, scope.getVariable("installed").getValue()).getElementByKey((line = 131, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 131, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 131, tools.valueFactory.createString("pretty_version"))).getValue())));}line = 133;if ((line = 133, ((line = 133, tools.valueFactory.createBarewordString("array_key_exists")).call([(line = 133, tools.valueFactory.createString("aliases")), (line = 133, (line = 133, scope.getVariable("installed").getValue()).getElementByKey((line = 133, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 133, scope.getVariable("packageName").getValue())))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 134;(line = 134, (line = 134, scope.getVariable("ranges")).setValue((line = 134, ((line = 134, tools.valueFactory.createBarewordString("array_merge")).call([(line = 134, scope.getVariable("ranges")), (line = 134, (line = 134, scope.getVariable("installed").getValue()).getElementByKey((line = 134, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 134, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 134, tools.valueFactory.createString("aliases"))))], namespaceScope) || tools.valueFactory.createNull()))));}line = 136;if ((line = 136, ((line = 136, tools.valueFactory.createBarewordString("array_key_exists")).call([(line = 136, tools.valueFactory.createString("replaced")), (line = 136, (line = 136, scope.getVariable("installed").getValue()).getElementByKey((line = 136, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 136, scope.getVariable("packageName").getValue())))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 137;(line = 137, (line = 137, scope.getVariable("ranges")).setValue((line = 137, ((line = 137, tools.valueFactory.createBarewordString("array_merge")).call([(line = 137, scope.getVariable("ranges")), (line = 137, (line = 137, scope.getVariable("installed").getValue()).getElementByKey((line = 137, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 137, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 137, tools.valueFactory.createString("replaced"))))], namespaceScope) || tools.valueFactory.createNull()))));}line = 139;if ((line = 139, ((line = 139, tools.valueFactory.createBarewordString("array_key_exists")).call([(line = 139, tools.valueFactory.createString("provided")), (line = 139, (line = 139, scope.getVariable("installed").getValue()).getElementByKey((line = 139, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 139, scope.getVariable("packageName").getValue())))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 140;(line = 140, (line = 140, scope.getVariable("ranges")).setValue((line = 140, ((line = 140, tools.valueFactory.createBarewordString("array_merge")).call([(line = 140, scope.getVariable("ranges")), (line = 140, (line = 140, scope.getVariable("installed").getValue()).getElementByKey((line = 140, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 140, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 140, tools.valueFactory.createString("provided"))))], namespaceScope) || tools.valueFactory.createNull()))));}line = 143;return (line = 143, ((line = 143, tools.valueFactory.createBarewordString("implode")).call([(line = 143, tools.valueFactory.createString(" || ")), (line = 143, scope.getVariable("ranges"))], namespaceScope) || tools.valueFactory.createNull()));}line = 146;throw (line = 146, tools.createInstance(namespaceScope, (line = 146, tools.valueFactory.createBarewordString("\\OutOfBoundsException")), [(line = 146, (line = 146, (line = 146, tools.valueFactory.createString("Package \"")).concat((line = 146, scope.getVariable("packageName").getValue()))).concat((line = 146, tools.valueFactory.createString("\" is not installed"))))]));}, args: [{"name":"packageName"}], line: 122}, "getVersion": {isStatic: true, method: function _getVersion($packageName) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $packageName = tools.createDebugVar(scope, "packageName");line = 155;block_1: for (var iterator_1 = (line = 155, (line = 155, scope.getClassNameOrThrow()).callStaticMethod((line = 155, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 155, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 156;if ((line = 156, (line = 156, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 156, (line = 156, scope.getVariable("installed").getValue()).getElementByKey((line = 156, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 156, scope.getVariable("packageName").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 157;continue block_1;}line = 160;if ((line = 160, (line = 160, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 160, (line = 160, scope.getVariable("installed").getValue()).getElementByKey((line = 160, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 160, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 160, tools.valueFactory.createString("version")))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 161;return (line = 161, tools.valueFactory.createNull());}line = 164;return (line = 164, (line = 164, scope.getVariable("installed").getValue()).getElementByKey((line = 164, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 164, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 164, tools.valueFactory.createString("version"))).getValue());}line = 167;throw (line = 167, tools.createInstance(namespaceScope, (line = 167, tools.valueFactory.createBarewordString("\\OutOfBoundsException")), [(line = 167, (line = 167, (line = 167, tools.valueFactory.createString("Package \"")).concat((line = 167, scope.getVariable("packageName").getValue()))).concat((line = 167, tools.valueFactory.createString("\" is not installed"))))]));}, args: [{"name":"packageName"}], line: 153}, "getPrettyVersion": {isStatic: true, method: function _getPrettyVersion($packageName) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $packageName = tools.createDebugVar(scope, "packageName");line = 176;block_1: for (var iterator_1 = (line = 176, (line = 176, scope.getClassNameOrThrow()).callStaticMethod((line = 176, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 176, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 177;if ((line = 177, (line = 177, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 177, (line = 177, scope.getVariable("installed").getValue()).getElementByKey((line = 177, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 177, scope.getVariable("packageName").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 178;continue block_1;}line = 181;if ((line = 181, (line = 181, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 181, (line = 181, scope.getVariable("installed").getValue()).getElementByKey((line = 181, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 181, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 181, tools.valueFactory.createString("pretty_version")))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 182;return (line = 182, tools.valueFactory.createNull());}line = 185;return (line = 185, (line = 185, scope.getVariable("installed").getValue()).getElementByKey((line = 185, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 185, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 185, tools.valueFactory.createString("pretty_version"))).getValue());}line = 188;throw (line = 188, tools.createInstance(namespaceScope, (line = 188, tools.valueFactory.createBarewordString("\\OutOfBoundsException")), [(line = 188, (line = 188, (line = 188, tools.valueFactory.createString("Package \"")).concat((line = 188, scope.getVariable("packageName").getValue()))).concat((line = 188, tools.valueFactory.createString("\" is not installed"))))]));}, args: [{"name":"packageName"}], line: 174}, "getReference": {isStatic: true, method: function _getReference($packageName) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("packageName").setValue($packageName.getValue());var $packageName = tools.createDebugVar(scope, "packageName");var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $packageName = tools.createDebugVar(scope, "packageName");line = 197;block_1: for (var iterator_1 = (line = 197, (line = 197, scope.getClassNameOrThrow()).callStaticMethod((line = 197, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 197, scope.getVariable("installed")).setValue(iterator_1.getCurrentElementValue());line = 198;if ((line = 198, (line = 198, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 198, (line = 198, scope.getVariable("installed").getValue()).getElementByKey((line = 198, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 198, scope.getVariable("packageName").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 199;continue block_1;}line = 202;if ((line = 202, (line = 202, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 202, (line = 202, scope.getVariable("installed").getValue()).getElementByKey((line = 202, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 202, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 202, tools.valueFactory.createString("reference")))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).logicalNot()).coerceToBoolean().getNative()) {line = 203;return (line = 203, tools.valueFactory.createNull());}line = 206;return (line = 206, (line = 206, scope.getVariable("installed").getValue()).getElementByKey((line = 206, tools.valueFactory.createString("versions"))).getValue().getElementByKey((line = 206, scope.getVariable("packageName").getValue())).getValue().getElementByKey((line = 206, tools.valueFactory.createString("reference"))).getValue());}line = 209;throw (line = 209, tools.createInstance(namespaceScope, (line = 209, tools.valueFactory.createBarewordString("\\OutOfBoundsException")), [(line = 209, (line = 209, (line = 209, tools.valueFactory.createString("Package \"")).concat((line = 209, scope.getVariable("packageName").getValue()))).concat((line = 209, tools.valueFactory.createString("\" is not installed"))))]));}, args: [{"name":"packageName"}], line: 195}, "getRootPackage": {isStatic: true, method: function _getRootPackage() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");line = 218;(line = 218, (line = 218, scope.getVariable("installed")).setValue((line = 218, (line = 218, scope.getClassNameOrThrow()).callStaticMethod((line = 218, tools.valueFactory.createBarewordString("getInstalled")), [], namespaceScope, true))));line = 220;return (line = 220, (line = 220, scope.getVariable("installed").getValue()).getElementByKey((line = 220, tools.valueFactory.createInteger(0))).getValue().getElementByKey((line = 220, tools.valueFactory.createString("root"))).getValue());}, args: [], line: 216}, "getRawData": {isStatic: true, method: function _getRawData() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");line = 231;return (line = 231, (line = 231, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 231, tools.valueFactory.createBarewordString("installed")), namespaceScope).getValue());}, args: [], line: 229}, "reload": {isStatic: true, method: function _reload($data) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("data").setValue($data.getValue());var $data = tools.createDebugVar(scope, "data");var $this = tools.createDebugVar(scope, "this");var $data = tools.createDebugVar(scope, "data");line = 254;(line = 254, (line = 254, (line = 254, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 254, tools.valueFactory.createBarewordString("installed")), namespaceScope)).setValue((line = 254, scope.getVariable("data").getValue())));line = 255;(line = 255, (line = 255, (line = 255, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 255, tools.valueFactory.createBarewordString("installedByVendor")), namespaceScope)).setValue((line = 255, tools.valueFactory.createArray([]))));}, args: [{"name":"data"}], line: 252}, "getInstalled": {isStatic: true, method: function _getInstalled() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $installed = tools.createDebugVar(scope, "installed");var $vendorDir = tools.createDebugVar(scope, "vendorDir");var $loader = tools.createDebugVar(scope, "loader");line = 263;if ((line = 263, (line = 263, tools.valueFactory.createNull()).isIdenticalTo((line = 263, (line = 263, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 263, tools.valueFactory.createBarewordString("canGetVendors")), namespaceScope).getValue()))).coerceToBoolean().getNative()) {line = 264;(line = 264, (line = 264, (line = 264, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 264, tools.valueFactory.createBarewordString("canGetVendors")), namespaceScope)).setValue((line = 264, ((line = 264, tools.valueFactory.createBarewordString("method_exists")).call([(line = 264, tools.valueFactory.createString("Composer\\Autoload\\ClassLoader")), (line = 264, tools.valueFactory.createString("getRegisteredLoaders"))], namespaceScope) || tools.valueFactory.createNull()))));}line = 267;(line = 267, (line = 267, scope.getVariable("installed")).setValue((line = 267, tools.valueFactory.createArray([]))));line = 269;if ((line = 269, (line = 269, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 269, tools.valueFactory.createBarewordString("canGetVendors")), namespaceScope).getValue()).coerceToBoolean().getNative()) {line = 271;block_1: for (var iterator_1 = (line = 271, (line = 271, tools.valueFactory.createBarewordString("ClassLoader")).callStaticMethod((line = 271, tools.valueFactory.createBarewordString("getRegisteredLoaders")), [], namespaceScope, false)).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 271, scope.getVariable("loader")).setValue(iterator_1.getCurrentElementValue());(line = 271, scope.getVariable("vendorDir")).setValue(iterator_1.getCurrentKey());line = 272;if ((line = 272, (function (scope) {scope.suppressOwnErrors();var result = tools.valueFactory.createBoolean((line = 272, (line = 272, (line = 272, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 272, tools.valueFactory.createBarewordString("installedByVendor")), namespaceScope).getValue()).getElementByKey((line = 272, scope.getVariable("vendorDir").getValue()))).isSet());scope.unsuppressOwnErrors(); return result;}(scope))).coerceToBoolean().getNative()) {line = 273;(line = 273, (line = 273, tools.implyArray((line = 273, scope.getVariable("installed"))).getPushElement()).setValue((line = 273, (line = 273, (line = 273, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 273, tools.valueFactory.createBarewordString("installedByVendor")), namespaceScope).getValue()).getElementByKey((line = 273, scope.getVariable("vendorDir").getValue())).getValue())));} else {line = 274;if ((line = 274, ((line = 274, tools.valueFactory.createBarewordString("is_file")).call([(line = 274, (line = 274, scope.getVariable("vendorDir").getValue()).concat((line = 274, tools.valueFactory.createString("/composer/installed.php"))))], namespaceScope) || tools.valueFactory.createNull())).coerceToBoolean().getNative()) {line = 275;(line = 275, (line = 275, tools.implyArray((line = 275, scope.getVariable("installed"))).getPushElement()).setValue((line = 275, (line = 275, tools.implyArray((line = 275, (line = 275, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 275, tools.valueFactory.createBarewordString("installedByVendor")), namespaceScope))).getElementByKey((line = 275, scope.getVariable("vendorDir").getValue()))).setValue((line = 275, tools.require((line = 275, (line = 275, scope.getVariable("vendorDir").getValue()).concat((line = 275, tools.valueFactory.createString("/composer/installed.php")))).getNative(), scope))))));}}}}line = 280;(line = 280, (line = 280, tools.implyArray((line = 280, scope.getVariable("installed"))).getPushElement()).setValue((line = 280, (line = 280, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 280, tools.valueFactory.createBarewordString("installed")), namespaceScope).getValue())));line = 282;return (line = 282, scope.getVariable("installed").getValue());}, args: [], line: 261}}, constants: {}}, namespaceScope);}());}(namespace))) { return namespaceResult; }return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(/*! ./../../node_modules/webpack/buildin/module.js */ "./node_modules/webpack/buildin/module.js")(module)))
 
 /***/ }),
 
@@ -36203,8 +36733,9 @@ module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./n
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
-module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/autoload_classmap.php", __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var $baseDir = tools.createDebugVar(scope, "baseDir");var $vendorDir = tools.createDebugVar(scope, "vendorDir");var line;tools.instrument(function () {return line;});line = 5;(line = 5, (line = 5, scope.getVariable("vendorDir")).setValue((line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, tools.getPath())], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()))));line = 6;(line = 6, (line = 6, scope.getVariable("baseDir")).setValue((line = 6, ((line = 6, tools.valueFactory.createBarewordString("dirname")).call([(line = 6, scope.getVariable("vendorDir"))], namespaceScope) || tools.valueFactory.createNull()))));line = 8;return (line = 8, tools.valueFactory.createArray([(line = 9, tools.createKeyValuePair((line = 9, tools.valueFactory.createString("Composer\\InstalledVersions")), (line = 9, (line = 9, scope.getVariable("vendorDir").getValue()).concat((line = 9, tools.valueFactory.createString("/composer/InstalledVersions.php"))))))]));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */(function(module) {__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
+__webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/autoload_classmap.php", module, __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var $baseDir = tools.createDebugVar(scope, "baseDir");var $vendorDir = tools.createDebugVar(scope, "vendorDir");var line;tools.instrument(function () {return line;});line = 5;(line = 5, (line = 5, scope.getVariable("vendorDir")).setValue((line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, tools.getPath())], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()))));line = 6;(line = 6, (line = 6, scope.getVariable("baseDir")).setValue((line = 6, ((line = 6, tools.valueFactory.createBarewordString("dirname")).call([(line = 6, scope.getVariable("vendorDir"))], namespaceScope) || tools.valueFactory.createNull()))));line = 8;return (line = 8, tools.valueFactory.createArray([(line = 9, tools.createKeyValuePair((line = 9, tools.valueFactory.createString("Composer\\InstalledVersions")), (line = 9, (line = 9, scope.getVariable("vendorDir").getValue()).concat((line = 9, tools.valueFactory.createString("/composer/InstalledVersions.php"))))))]));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(/*! ./../../node_modules/webpack/buildin/module.js */ "./node_modules/webpack/buildin/module.js")(module)))
 
 /***/ }),
 
@@ -36215,8 +36746,9 @@ module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./n
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
-module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/autoload_namespaces.php", __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var $baseDir = tools.createDebugVar(scope, "baseDir");var $vendorDir = tools.createDebugVar(scope, "vendorDir");var line;tools.instrument(function () {return line;});line = 5;(line = 5, (line = 5, scope.getVariable("vendorDir")).setValue((line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, tools.getPath())], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()))));line = 6;(line = 6, (line = 6, scope.getVariable("baseDir")).setValue((line = 6, ((line = 6, tools.valueFactory.createBarewordString("dirname")).call([(line = 6, scope.getVariable("vendorDir"))], namespaceScope) || tools.valueFactory.createNull()))));line = 8;return (line = 8, tools.valueFactory.createArray([]));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */(function(module) {__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
+__webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/autoload_namespaces.php", module, __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var $baseDir = tools.createDebugVar(scope, "baseDir");var $vendorDir = tools.createDebugVar(scope, "vendorDir");var line;tools.instrument(function () {return line;});line = 5;(line = 5, (line = 5, scope.getVariable("vendorDir")).setValue((line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, tools.getPath())], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()))));line = 6;(line = 6, (line = 6, scope.getVariable("baseDir")).setValue((line = 6, ((line = 6, tools.valueFactory.createBarewordString("dirname")).call([(line = 6, scope.getVariable("vendorDir"))], namespaceScope) || tools.valueFactory.createNull()))));line = 8;return (line = 8, tools.valueFactory.createArray([]));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(/*! ./../../node_modules/webpack/buildin/module.js */ "./node_modules/webpack/buildin/module.js")(module)))
 
 /***/ }),
 
@@ -36227,8 +36759,9 @@ module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./n
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
-module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/autoload_psr4.php", __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var $baseDir = tools.createDebugVar(scope, "baseDir");var $vendorDir = tools.createDebugVar(scope, "vendorDir");var line;tools.instrument(function () {return line;});line = 5;(line = 5, (line = 5, scope.getVariable("vendorDir")).setValue((line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, tools.getPath())], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()))));line = 6;(line = 6, (line = 6, scope.getVariable("baseDir")).setValue((line = 6, ((line = 6, tools.valueFactory.createBarewordString("dirname")).call([(line = 6, scope.getVariable("vendorDir"))], namespaceScope) || tools.valueFactory.createNull()))));line = 8;return (line = 8, tools.valueFactory.createArray([(line = 9, tools.createKeyValuePair((line = 9, tools.valueFactory.createString("MyUniterProjects\\MarkdownPluginExample\\")), (line = 9, tools.valueFactory.createArray([(line = 9, (line = 9, scope.getVariable("baseDir").getValue()).concat((line = 9, tools.valueFactory.createString("/src"))))]))))]));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */(function(module) {__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
+__webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/autoload_psr4.php", module, __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var $baseDir = tools.createDebugVar(scope, "baseDir");var $vendorDir = tools.createDebugVar(scope, "vendorDir");var line;tools.instrument(function () {return line;});line = 5;(line = 5, (line = 5, scope.getVariable("vendorDir")).setValue((line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, ((line = 5, tools.valueFactory.createBarewordString("dirname")).call([(line = 5, tools.getPath())], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()))));line = 6;(line = 6, (line = 6, scope.getVariable("baseDir")).setValue((line = 6, ((line = 6, tools.valueFactory.createBarewordString("dirname")).call([(line = 6, scope.getVariable("vendorDir"))], namespaceScope) || tools.valueFactory.createNull()))));line = 8;return (line = 8, tools.valueFactory.createArray([(line = 9, tools.createKeyValuePair((line = 9, tools.valueFactory.createString("MyUniterProjects\\MarkdownPluginExample\\")), (line = 9, tools.valueFactory.createArray([(line = 9, (line = 9, scope.getVariable("baseDir").getValue()).concat((line = 9, tools.valueFactory.createString("/src"))))]))))]));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(/*! ./../../node_modules/webpack/buildin/module.js */ "./node_modules/webpack/buildin/module.js")(module)))
 
 /***/ }),
 
@@ -36239,8 +36772,9 @@ module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./n
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
-module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/autoload_real.php", __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 5;(function () {var currentClass = namespace.defineClass("ComposerAutoloaderInita938c0f9513fc8fb70dd34967ae81190", {superClass: null, interfaces: [], staticProperties: {"loader": {visibility: "private", value: function (currentClass) { return tools.valueFactory.createNull(); }}}, properties: {}, methods: {"loadClassLoader": {isStatic: true, method: function _loadClassLoader($class) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("class").setValue($class.getValue());var $class = tools.createDebugVar(scope, "class");var $this = tools.createDebugVar(scope, "this");var $class = tools.createDebugVar(scope, "class");line = 11;if ((line = 11, (line = 11, tools.valueFactory.createString("Composer\\Autoload\\ClassLoader")).isIdenticalTo((line = 11, scope.getVariable("class").getValue()))).coerceToBoolean().getNative()) {line = 12;(line = 12, tools.require((line = 12, (line = 12, tools.getPathDirectory()).concat((line = 12, tools.valueFactory.createString("/ClassLoader.php")))).getNative(), scope));}}, args: [{"name":"class"}], line: 9}, "getLoader": {isStatic: true, method: function _getLoader() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $loader = tools.createDebugVar(scope, "loader");var $useStaticLoader = tools.createDebugVar(scope, "useStaticLoader");var $map = tools.createDebugVar(scope, "map");var $namespace = tools.createDebugVar(scope, "namespace");var $path = tools.createDebugVar(scope, "path");var $classMap = tools.createDebugVar(scope, "classMap");line = 21;if ((line = 21, (line = 21, tools.valueFactory.createNull()).isNotIdenticalTo((line = 21, (line = 21, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 21, tools.valueFactory.createBarewordString("loader")), namespaceScope).getValue()))).coerceToBoolean().getNative()) {line = 22;return (line = 22, (line = 22, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 22, tools.valueFactory.createBarewordString("loader")), namespaceScope).getValue());}line = 25;(line = 25, ((line = 25, tools.valueFactory.createBarewordString("spl_autoload_register")).call([(line = 25, tools.valueFactory.createArray([(line = 25, tools.valueFactory.createString("ComposerAutoloaderInita938c0f9513fc8fb70dd34967ae81190")), (line = 25, tools.valueFactory.createString("loadClassLoader"))])), (line = 25, tools.valueFactory.createBoolean(true)), (line = 25, tools.valueFactory.createBoolean(true))], namespaceScope) || tools.valueFactory.createNull()));line = 26;(line = 26, (line = 26, (line = 26, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 26, tools.valueFactory.createBarewordString("loader")), namespaceScope)).setValue((line = 26, (line = 26, scope.getVariable("loader")).setValue((line = 26, tools.createInstance(namespaceScope, (line = 26, tools.valueFactory.createBarewordString("\\Composer\\Autoload\\ClassLoader")), [(line = 26, ((line = 26, tools.valueFactory.createBarewordString("\\dirname")).call([(line = 26, ((line = 26, tools.valueFactory.createBarewordString("\\dirname")).call([(line = 26, tools.getPath())], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()))]))))));line = 27;(line = 27, ((line = 27, tools.valueFactory.createBarewordString("spl_autoload_unregister")).call([(line = 27, tools.valueFactory.createArray([(line = 27, tools.valueFactory.createString("ComposerAutoloaderInita938c0f9513fc8fb70dd34967ae81190")), (line = 27, tools.valueFactory.createString("loadClassLoader"))]))], namespaceScope) || tools.valueFactory.createNull()));line = 29;(line = 29, (line = 29, scope.getVariable("useStaticLoader")).setValue((line = 29, tools.valueFactory.createBoolean((line = 29, tools.valueFactory.createBoolean((line = 29, (line = 29, namespaceScope.getConstant("PHP_VERSION_ID")).isGreaterThanOrEqual((line = 29, tools.valueFactory.createInteger(50600)))).coerceToBoolean().getNative() && ((line = 29, (line = 29, ((line = 29, tools.valueFactory.createBarewordString("defined")).call([(line = 29, tools.valueFactory.createString("HHVM_VERSION"))], namespaceScope) || tools.valueFactory.createNull())).logicalNot()).coerceToBoolean().getNative()))).coerceToBoolean().getNative() && ((line = 29, tools.valueFactory.createBoolean((line = 29, (line = 29, ((line = 29, tools.valueFactory.createBarewordString("function_exists")).call([(line = 29, tools.valueFactory.createString("zend_loader_file_encoded"))], namespaceScope) || tools.valueFactory.createNull())).logicalNot()).coerceToBoolean().getNative() || ((line = 29, (line = 29, ((line = 29, tools.valueFactory.createBarewordString("zend_loader_file_encoded")).call([], namespaceScope) || tools.valueFactory.createNull())).logicalNot()).coerceToBoolean().getNative()))).coerceToBoolean().getNative())))));line = 30;if ((line = 30, scope.getVariable("useStaticLoader").getValue()).coerceToBoolean().getNative()) {line = 31;(line = 31, tools.require((line = 31, (line = 31, tools.getPathDirectory()).concat((line = 31, tools.valueFactory.createString("/autoload_static.php")))).getNative(), scope));line = 33;(line = 33, ((line = 33, tools.valueFactory.createBarewordString("call_user_func")).call([(line = 33, (line = 33, tools.valueFactory.createBarewordString("\\Composer\\Autoload\\ComposerStaticInita938c0f9513fc8fb70dd34967ae81190")).callStaticMethod((line = 33, tools.valueFactory.createBarewordString("getInitializer")), [(line = 33, scope.getVariable("loader"))], namespaceScope, false))], namespaceScope) || tools.valueFactory.createNull()));} else {line = 35;(line = 35, (line = 35, scope.getVariable("map")).setValue((line = 35, tools.require((line = 35, (line = 35, tools.getPathDirectory()).concat((line = 35, tools.valueFactory.createString("/autoload_namespaces.php")))).getNative(), scope))));line = 36;block_1: for (var iterator_1 = (line = 36, scope.getVariable("map").getValue()).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 36, scope.getVariable("path")).setValue(iterator_1.getCurrentElementValue());(line = 36, scope.getVariable("namespace")).setValue(iterator_1.getCurrentKey());line = 37;(line = 37, (line = 37, scope.getVariable("loader").getValue()).callMethod((line = 37, tools.valueFactory.createBarewordString("set")).getNative(), [(line = 37, scope.getVariable("namespace")), (line = 37, scope.getVariable("path"))]));}line = 40;(line = 40, (line = 40, scope.getVariable("map")).setValue((line = 40, tools.require((line = 40, (line = 40, tools.getPathDirectory()).concat((line = 40, tools.valueFactory.createString("/autoload_psr4.php")))).getNative(), scope))));line = 41;block_1: for (var iterator_1 = (line = 41, scope.getVariable("map").getValue()).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 41, scope.getVariable("path")).setValue(iterator_1.getCurrentElementValue());(line = 41, scope.getVariable("namespace")).setValue(iterator_1.getCurrentKey());line = 42;(line = 42, (line = 42, scope.getVariable("loader").getValue()).callMethod((line = 42, tools.valueFactory.createBarewordString("setPsr4")).getNative(), [(line = 42, scope.getVariable("namespace")), (line = 42, scope.getVariable("path"))]));}line = 45;(line = 45, (line = 45, scope.getVariable("classMap")).setValue((line = 45, tools.require((line = 45, (line = 45, tools.getPathDirectory()).concat((line = 45, tools.valueFactory.createString("/autoload_classmap.php")))).getNative(), scope))));line = 46;if ((line = 46, scope.getVariable("classMap").getValue()).coerceToBoolean().getNative()) {line = 47;(line = 47, (line = 47, scope.getVariable("loader").getValue()).callMethod((line = 47, tools.valueFactory.createBarewordString("addClassMap")).getNative(), [(line = 47, scope.getVariable("classMap"))]));}}line = 51;(line = 51, (line = 51, scope.getVariable("loader").getValue()).callMethod((line = 51, tools.valueFactory.createBarewordString("register")).getNative(), [(line = 51, tools.valueFactory.createBoolean(true))]));line = 53;return (line = 53, scope.getVariable("loader").getValue());}, args: [], line: 19}}, constants: {}}, namespaceScope);}());return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */(function(module) {__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
+__webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/autoload_real.php", module, __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 5;(function () {var currentClass = namespace.defineClass("ComposerAutoloaderInita938c0f9513fc8fb70dd34967ae81190", {superClass: null, interfaces: [], staticProperties: {"loader": {visibility: "private", value: function (currentClass) { return tools.valueFactory.createNull(); }}}, properties: {}, methods: {"loadClassLoader": {isStatic: true, method: function _loadClassLoader($class) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("class").setValue($class.getValue());var $class = tools.createDebugVar(scope, "class");var $this = tools.createDebugVar(scope, "this");var $class = tools.createDebugVar(scope, "class");line = 11;if ((line = 11, (line = 11, tools.valueFactory.createString("Composer\\Autoload\\ClassLoader")).isIdenticalTo((line = 11, scope.getVariable("class").getValue()))).coerceToBoolean().getNative()) {line = 12;(line = 12, tools.require((line = 12, (line = 12, tools.getPathDirectory()).concat((line = 12, tools.valueFactory.createString("/ClassLoader.php")))).getNative(), scope));}}, args: [{"name":"class"}], line: 9}, "getLoader": {isStatic: true, method: function _getLoader() {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $loader = tools.createDebugVar(scope, "loader");var $useStaticLoader = tools.createDebugVar(scope, "useStaticLoader");var $map = tools.createDebugVar(scope, "map");var $namespace = tools.createDebugVar(scope, "namespace");var $path = tools.createDebugVar(scope, "path");var $classMap = tools.createDebugVar(scope, "classMap");line = 21;if ((line = 21, (line = 21, tools.valueFactory.createNull()).isNotIdenticalTo((line = 21, (line = 21, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 21, tools.valueFactory.createBarewordString("loader")), namespaceScope).getValue()))).coerceToBoolean().getNative()) {line = 22;return (line = 22, (line = 22, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 22, tools.valueFactory.createBarewordString("loader")), namespaceScope).getValue());}line = 25;(line = 25, ((line = 25, tools.valueFactory.createBarewordString("spl_autoload_register")).call([(line = 25, tools.valueFactory.createArray([(line = 25, tools.valueFactory.createString("ComposerAutoloaderInita938c0f9513fc8fb70dd34967ae81190")), (line = 25, tools.valueFactory.createString("loadClassLoader"))])), (line = 25, tools.valueFactory.createBoolean(true)), (line = 25, tools.valueFactory.createBoolean(true))], namespaceScope) || tools.valueFactory.createNull()));line = 26;(line = 26, (line = 26, (line = 26, scope.getClassNameOrThrow()).getStaticPropertyByName((line = 26, tools.valueFactory.createBarewordString("loader")), namespaceScope)).setValue((line = 26, (line = 26, scope.getVariable("loader")).setValue((line = 26, tools.createInstance(namespaceScope, (line = 26, tools.valueFactory.createBarewordString("\\Composer\\Autoload\\ClassLoader")), [(line = 26, ((line = 26, tools.valueFactory.createBarewordString("\\dirname")).call([(line = 26, ((line = 26, tools.valueFactory.createBarewordString("\\dirname")).call([(line = 26, tools.getPath())], namespaceScope) || tools.valueFactory.createNull()))], namespaceScope) || tools.valueFactory.createNull()))]))))));line = 27;(line = 27, ((line = 27, tools.valueFactory.createBarewordString("spl_autoload_unregister")).call([(line = 27, tools.valueFactory.createArray([(line = 27, tools.valueFactory.createString("ComposerAutoloaderInita938c0f9513fc8fb70dd34967ae81190")), (line = 27, tools.valueFactory.createString("loadClassLoader"))]))], namespaceScope) || tools.valueFactory.createNull()));line = 29;(line = 29, (line = 29, scope.getVariable("useStaticLoader")).setValue((line = 29, tools.valueFactory.createBoolean((line = 29, tools.valueFactory.createBoolean((line = 29, (line = 29, namespaceScope.getConstant("PHP_VERSION_ID")).isGreaterThanOrEqual((line = 29, tools.valueFactory.createInteger(50600)))).coerceToBoolean().getNative() && ((line = 29, (line = 29, ((line = 29, tools.valueFactory.createBarewordString("defined")).call([(line = 29, tools.valueFactory.createString("HHVM_VERSION"))], namespaceScope) || tools.valueFactory.createNull())).logicalNot()).coerceToBoolean().getNative()))).coerceToBoolean().getNative() && ((line = 29, tools.valueFactory.createBoolean((line = 29, (line = 29, ((line = 29, tools.valueFactory.createBarewordString("function_exists")).call([(line = 29, tools.valueFactory.createString("zend_loader_file_encoded"))], namespaceScope) || tools.valueFactory.createNull())).logicalNot()).coerceToBoolean().getNative() || ((line = 29, (line = 29, ((line = 29, tools.valueFactory.createBarewordString("zend_loader_file_encoded")).call([], namespaceScope) || tools.valueFactory.createNull())).logicalNot()).coerceToBoolean().getNative()))).coerceToBoolean().getNative())))));line = 30;if ((line = 30, scope.getVariable("useStaticLoader").getValue()).coerceToBoolean().getNative()) {line = 31;(line = 31, tools.require((line = 31, (line = 31, tools.getPathDirectory()).concat((line = 31, tools.valueFactory.createString("/autoload_static.php")))).getNative(), scope));line = 33;(line = 33, ((line = 33, tools.valueFactory.createBarewordString("call_user_func")).call([(line = 33, (line = 33, tools.valueFactory.createBarewordString("\\Composer\\Autoload\\ComposerStaticInita938c0f9513fc8fb70dd34967ae81190")).callStaticMethod((line = 33, tools.valueFactory.createBarewordString("getInitializer")), [(line = 33, scope.getVariable("loader"))], namespaceScope, false))], namespaceScope) || tools.valueFactory.createNull()));} else {line = 35;(line = 35, (line = 35, scope.getVariable("map")).setValue((line = 35, tools.require((line = 35, (line = 35, tools.getPathDirectory()).concat((line = 35, tools.valueFactory.createString("/autoload_namespaces.php")))).getNative(), scope))));line = 36;block_1: for (var iterator_1 = (line = 36, scope.getVariable("map").getValue()).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 36, scope.getVariable("path")).setValue(iterator_1.getCurrentElementValue());(line = 36, scope.getVariable("namespace")).setValue(iterator_1.getCurrentKey());line = 37;(line = 37, (line = 37, scope.getVariable("loader").getValue()).callMethod((line = 37, tools.valueFactory.createBarewordString("set")).getNative(), [(line = 37, scope.getVariable("namespace")), (line = 37, scope.getVariable("path"))]));}line = 40;(line = 40, (line = 40, scope.getVariable("map")).setValue((line = 40, tools.require((line = 40, (line = 40, tools.getPathDirectory()).concat((line = 40, tools.valueFactory.createString("/autoload_psr4.php")))).getNative(), scope))));line = 41;block_1: for (var iterator_1 = (line = 41, scope.getVariable("map").getValue()).getIterator(); iterator_1.isNotFinished(); iterator_1.advance()) {(line = 41, scope.getVariable("path")).setValue(iterator_1.getCurrentElementValue());(line = 41, scope.getVariable("namespace")).setValue(iterator_1.getCurrentKey());line = 42;(line = 42, (line = 42, scope.getVariable("loader").getValue()).callMethod((line = 42, tools.valueFactory.createBarewordString("setPsr4")).getNative(), [(line = 42, scope.getVariable("namespace")), (line = 42, scope.getVariable("path"))]));}line = 45;(line = 45, (line = 45, scope.getVariable("classMap")).setValue((line = 45, tools.require((line = 45, (line = 45, tools.getPathDirectory()).concat((line = 45, tools.valueFactory.createString("/autoload_classmap.php")))).getNative(), scope))));line = 46;if ((line = 46, scope.getVariable("classMap").getValue()).coerceToBoolean().getNative()) {line = 47;(line = 47, (line = 47, scope.getVariable("loader").getValue()).callMethod((line = 47, tools.valueFactory.createBarewordString("addClassMap")).getNative(), [(line = 47, scope.getVariable("classMap"))]));}}line = 51;(line = 51, (line = 51, scope.getVariable("loader").getValue()).callMethod((line = 51, tools.valueFactory.createBarewordString("register")).getNative(), [(line = 51, tools.valueFactory.createBoolean(true))]));line = 53;return (line = 53, scope.getVariable("loader").getValue());}, args: [], line: 19}}, constants: {}}, namespaceScope);}());return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(/*! ./../../node_modules/webpack/buildin/module.js */ "./node_modules/webpack/buildin/module.js")(module)))
 
 /***/ }),
 
@@ -36251,8 +36785,9 @@ module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./n
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
-module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/autoload_static.php", __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 5;if (namespaceResult = (function (globalNamespace) {var namespace = globalNamespace.getDescendant("Composer\\Autoload"), namespaceScope = tools.createNamespaceScope(namespace);line = 7;(function () {var currentClass = namespace.defineClass("ComposerStaticInita938c0f9513fc8fb70dd34967ae81190", {superClass: null, interfaces: [], staticProperties: {"prefixLengthsPsr4": {visibility: "public", value: function (currentClass) { return (line = 9, tools.valueFactory.createArray([(line = 10, tools.createKeyValuePair((line = 10, tools.valueFactory.createString("M")), (line = 11, tools.valueFactory.createArray([(line = 12, tools.createKeyValuePair((line = 12, tools.valueFactory.createString("MyUniterProjects\\MarkdownPluginExample\\")), (line = 12, tools.valueFactory.createInteger(39))))]))))])); }}, "prefixDirsPsr4": {visibility: "public", value: function (currentClass) { return (line = 16, tools.valueFactory.createArray([(line = 17, tools.createKeyValuePair((line = 17, tools.valueFactory.createString("MyUniterProjects\\MarkdownPluginExample\\")), (line = 18, tools.valueFactory.createArray([(line = 19, tools.createKeyValuePair((line = 19, tools.valueFactory.createInteger(0)), (line = 19, (line = 19, (line = 19, tools.getPathDirectory()).concat((line = 19, tools.valueFactory.createString("/../..")))).concat((line = 19, tools.valueFactory.createString("/src"))))))]))))])); }}, "classMap": {visibility: "public", value: function (currentClass) { return (line = 23, tools.valueFactory.createArray([(line = 24, tools.createKeyValuePair((line = 24, tools.valueFactory.createString("Composer\\InstalledVersions")), (line = 24, (line = 24, (line = 24, tools.getPathDirectory()).concat((line = 24, tools.valueFactory.createString("/..")))).concat((line = 24, tools.valueFactory.createString("/composer/InstalledVersions.php"))))))])); }}}, properties: {}, methods: {"getInitializer": {isStatic: true, method: function _getInitializer($loader) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("loader").setValue($loader.getValue());var $loader = tools.createDebugVar(scope, "loader");var $this = tools.createDebugVar(scope, "this");line = 29;return (line = 29, (line = 29, tools.valueFactory.createBarewordString("\\Closure")).callStaticMethod((line = 29, tools.valueFactory.createBarewordString("bind")), [(line = 29, tools.createClosure((function (parentScope) { return function () {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $loader = tools.createDebugVar(scope, "loader");scope.getVariable("loader").setValue(parentScope.getVariable("loader").getValue());var $loader = tools.createDebugVar(scope, "loader");line = 30;(line = 30, (line = 30, tools.implyObject((line = 30, scope.getVariable("loader"))).getInstancePropertyByName((line = 30, tools.valueFactory.createBarewordString("prefixLengthsPsr4")))).setValue((line = 30, (line = 30, tools.valueFactory.createBarewordString("ComposerStaticInita938c0f9513fc8fb70dd34967ae81190")).getStaticPropertyByName((line = 30, tools.valueFactory.createBarewordString("prefixLengthsPsr4")), namespaceScope).getValue())));line = 31;(line = 31, (line = 31, tools.implyObject((line = 31, scope.getVariable("loader"))).getInstancePropertyByName((line = 31, tools.valueFactory.createBarewordString("prefixDirsPsr4")))).setValue((line = 31, (line = 31, tools.valueFactory.createBarewordString("ComposerStaticInita938c0f9513fc8fb70dd34967ae81190")).getStaticPropertyByName((line = 31, tools.valueFactory.createBarewordString("prefixDirsPsr4")), namespaceScope).getValue())));line = 32;(line = 32, (line = 32, tools.implyObject((line = 32, scope.getVariable("loader"))).getInstancePropertyByName((line = 32, tools.valueFactory.createBarewordString("classMap")))).setValue((line = 32, (line = 32, tools.valueFactory.createBarewordString("ComposerStaticInita938c0f9513fc8fb70dd34967ae81190")).getStaticPropertyByName((line = 32, tools.valueFactory.createBarewordString("classMap")), namespaceScope).getValue())));}; }(scope)), scope, namespaceScope, [], false, 29)), (line = 34, tools.valueFactory.createNull()), (line = 34, (line = 34, tools.valueFactory.createBarewordString("ClassLoader")).getConstantByName("class", namespaceScope))], namespaceScope, false));}, args: [{"type":"class","className":"ClassLoader","name":"loader"}], line: 27}}, constants: {}}, namespaceScope);}());}(namespace))) { return namespaceResult; }return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */(function(module) {__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
+__webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/autoload_static.php", module, __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 5;if (namespaceResult = (function (globalNamespace) {var namespace = globalNamespace.getDescendant("Composer\\Autoload"), namespaceScope = tools.createNamespaceScope(namespace);line = 7;(function () {var currentClass = namespace.defineClass("ComposerStaticInita938c0f9513fc8fb70dd34967ae81190", {superClass: null, interfaces: [], staticProperties: {"prefixLengthsPsr4": {visibility: "public", value: function (currentClass) { return (line = 9, tools.valueFactory.createArray([(line = 10, tools.createKeyValuePair((line = 10, tools.valueFactory.createString("M")), (line = 11, tools.valueFactory.createArray([(line = 12, tools.createKeyValuePair((line = 12, tools.valueFactory.createString("MyUniterProjects\\MarkdownPluginExample\\")), (line = 12, tools.valueFactory.createInteger(39))))]))))])); }}, "prefixDirsPsr4": {visibility: "public", value: function (currentClass) { return (line = 16, tools.valueFactory.createArray([(line = 17, tools.createKeyValuePair((line = 17, tools.valueFactory.createString("MyUniterProjects\\MarkdownPluginExample\\")), (line = 18, tools.valueFactory.createArray([(line = 19, tools.createKeyValuePair((line = 19, tools.valueFactory.createInteger(0)), (line = 19, (line = 19, (line = 19, tools.getPathDirectory()).concat((line = 19, tools.valueFactory.createString("/../..")))).concat((line = 19, tools.valueFactory.createString("/src"))))))]))))])); }}, "classMap": {visibility: "public", value: function (currentClass) { return (line = 23, tools.valueFactory.createArray([(line = 24, tools.createKeyValuePair((line = 24, tools.valueFactory.createString("Composer\\InstalledVersions")), (line = 24, (line = 24, (line = 24, tools.getPathDirectory()).concat((line = 24, tools.valueFactory.createString("/..")))).concat((line = 24, tools.valueFactory.createString("/composer/InstalledVersions.php"))))))])); }}}, properties: {}, methods: {"getInitializer": {isStatic: true, method: function _getInitializer($loader) {var scope = this;var line;tools.instrument(function () {return line;});scope.getVariable("loader").setValue($loader.getValue());var $loader = tools.createDebugVar(scope, "loader");var $this = tools.createDebugVar(scope, "this");line = 29;return (line = 29, (line = 29, tools.valueFactory.createBarewordString("\\Closure")).callStaticMethod((line = 29, tools.valueFactory.createBarewordString("bind")), [(line = 29, tools.createClosure((function (parentScope) { return function () {var scope = this;var line;tools.instrument(function () {return line;});var $this = tools.createDebugVar(scope, "this");var $loader = tools.createDebugVar(scope, "loader");scope.getVariable("loader").setValue(parentScope.getVariable("loader").getValue());var $loader = tools.createDebugVar(scope, "loader");line = 30;(line = 30, (line = 30, tools.implyObject((line = 30, scope.getVariable("loader"))).getInstancePropertyByName((line = 30, tools.valueFactory.createBarewordString("prefixLengthsPsr4")))).setValue((line = 30, (line = 30, tools.valueFactory.createBarewordString("ComposerStaticInita938c0f9513fc8fb70dd34967ae81190")).getStaticPropertyByName((line = 30, tools.valueFactory.createBarewordString("prefixLengthsPsr4")), namespaceScope).getValue())));line = 31;(line = 31, (line = 31, tools.implyObject((line = 31, scope.getVariable("loader"))).getInstancePropertyByName((line = 31, tools.valueFactory.createBarewordString("prefixDirsPsr4")))).setValue((line = 31, (line = 31, tools.valueFactory.createBarewordString("ComposerStaticInita938c0f9513fc8fb70dd34967ae81190")).getStaticPropertyByName((line = 31, tools.valueFactory.createBarewordString("prefixDirsPsr4")), namespaceScope).getValue())));line = 32;(line = 32, (line = 32, tools.implyObject((line = 32, scope.getVariable("loader"))).getInstancePropertyByName((line = 32, tools.valueFactory.createBarewordString("classMap")))).setValue((line = 32, (line = 32, tools.valueFactory.createBarewordString("ComposerStaticInita938c0f9513fc8fb70dd34967ae81190")).getStaticPropertyByName((line = 32, tools.valueFactory.createBarewordString("classMap")), namespaceScope).getValue())));}; }(scope)), scope, namespaceScope, [], false, 29)), (line = 34, tools.valueFactory.createNull()), (line = 34, (line = 34, tools.valueFactory.createBarewordString("ClassLoader")).getConstantByName("class", namespaceScope))], namespaceScope, false));}, args: [{"type":"class","className":"ClassLoader","name":"loader"}], line: 27}}, constants: {}}, namespaceScope);}());}(namespace))) { return namespaceResult; }return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(/*! ./../../node_modules/webpack/buildin/module.js */ "./node_modules/webpack/buildin/module.js")(module)))
 
 /***/ }),
 
@@ -36263,8 +36798,9 @@ module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./n
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
-module.exports = __webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/installed.php", __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 1;return (line = 1, tools.valueFactory.createArray([(line = 2, tools.createKeyValuePair((line = 2, tools.valueFactory.createString("root")), (line = 3, tools.valueFactory.createArray([(line = 4, tools.createKeyValuePair((line = 4, tools.valueFactory.createString("pretty_version")), (line = 4, tools.valueFactory.createString("1.0.0+no-version-set")))), (line = 5, tools.createKeyValuePair((line = 5, tools.valueFactory.createString("version")), (line = 5, tools.valueFactory.createString("1.0.0.0")))), (line = 6, tools.createKeyValuePair((line = 6, tools.valueFactory.createString("aliases")), (line = 7, tools.valueFactory.createArray([])))), (line = 9, tools.createKeyValuePair((line = 9, tools.valueFactory.createString("reference")), (line = 9, tools.valueFactory.createNull()))), (line = 10, tools.createKeyValuePair((line = 10, tools.valueFactory.createString("name")), (line = 10, tools.valueFactory.createString("uniter/markdown-plugin-example"))))])))), (line = 12, tools.createKeyValuePair((line = 12, tools.valueFactory.createString("versions")), (line = 13, tools.valueFactory.createArray([(line = 14, tools.createKeyValuePair((line = 14, tools.valueFactory.createString("uniter/markdown-plugin-example")), (line = 15, tools.valueFactory.createArray([(line = 16, tools.createKeyValuePair((line = 16, tools.valueFactory.createString("pretty_version")), (line = 16, tools.valueFactory.createString("1.0.0+no-version-set")))), (line = 17, tools.createKeyValuePair((line = 17, tools.valueFactory.createString("version")), (line = 17, tools.valueFactory.createString("1.0.0.0")))), (line = 18, tools.createKeyValuePair((line = 18, tools.valueFactory.createString("aliases")), (line = 19, tools.valueFactory.createArray([])))), (line = 21, tools.createKeyValuePair((line = 21, tools.valueFactory.createString("reference")), (line = 21, tools.valueFactory.createNull())))]))))]))))]));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */(function(module) {__webpack_require__(/*! ./node_modules/phpify/src/php/initialiser_stub.php */ "./node_modules/phpify/src/php/initialiser_stub.php");
+__webpack_require__(/*! ./node_modules/phpify/api/psync */ "./node_modules/phpify/api/psync.js").load("vendor/composer/installed.php", module, __webpack_require__(/*! ./node_modules/phpruntime/psync */ "./node_modules/phpruntime/psync.js").compile(function (stdin, stdout, stderr, tools, namespace) {var namespaceScope = tools.topLevelNamespaceScope, namespaceResult, scope = tools.topLevelScope, currentClass = null;var line;tools.instrument(function () {return line;});line = 1;return (line = 1, tools.valueFactory.createArray([(line = 2, tools.createKeyValuePair((line = 2, tools.valueFactory.createString("root")), (line = 3, tools.valueFactory.createArray([(line = 4, tools.createKeyValuePair((line = 4, tools.valueFactory.createString("pretty_version")), (line = 4, tools.valueFactory.createString("1.0.0+no-version-set")))), (line = 5, tools.createKeyValuePair((line = 5, tools.valueFactory.createString("version")), (line = 5, tools.valueFactory.createString("1.0.0.0")))), (line = 6, tools.createKeyValuePair((line = 6, tools.valueFactory.createString("aliases")), (line = 7, tools.valueFactory.createArray([])))), (line = 9, tools.createKeyValuePair((line = 9, tools.valueFactory.createString("reference")), (line = 9, tools.valueFactory.createNull()))), (line = 10, tools.createKeyValuePair((line = 10, tools.valueFactory.createString("name")), (line = 10, tools.valueFactory.createString("uniter/markdown-plugin-example"))))])))), (line = 12, tools.createKeyValuePair((line = 12, tools.valueFactory.createString("versions")), (line = 13, tools.valueFactory.createArray([(line = 14, tools.createKeyValuePair((line = 14, tools.valueFactory.createString("uniter/markdown-plugin-example")), (line = 15, tools.valueFactory.createArray([(line = 16, tools.createKeyValuePair((line = 16, tools.valueFactory.createString("pretty_version")), (line = 16, tools.valueFactory.createString("1.0.0+no-version-set")))), (line = 17, tools.createKeyValuePair((line = 17, tools.valueFactory.createString("version")), (line = 17, tools.valueFactory.createString("1.0.0.0")))), (line = 18, tools.createKeyValuePair((line = 18, tools.valueFactory.createString("aliases")), (line = 19, tools.valueFactory.createArray([])))), (line = 21, tools.createKeyValuePair((line = 21, tools.valueFactory.createString("reference")), (line = 21, tools.valueFactory.createNull())))]))))]))))]));return tools.valueFactory.createNull();}));;
+/* WEBPACK VAR INJECTION */}.call(this, __webpack_require__(/*! ./../../node_modules/webpack/buildin/module.js */ "./node_modules/webpack/buildin/module.js")(module)))
 
 /***/ })
 
